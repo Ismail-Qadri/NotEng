@@ -140,7 +140,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
   }, [user, isNewUser]);
   
   const getResourcesForGroups = (groupIds) => {
-    if (!Array.isArray(groupIds)) return [];
+    if (!Array.isArray(groupIds) || !Array.isArray(groups)) return [];
     const allResourceIds = groupIds.flatMap(id => {
       const group = groups.find(g => g.id === id);
       if (group && Array.isArray(group.roles)) {
@@ -151,26 +151,75 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
     return Array.from(new Set(allResourceIds));
   };
   
-  const getRoleNamesForGroups = (groupIds) => {
-    if (!Array.isArray(groupIds)) return '';
-    const uniqueRoleNames = new Set();
-    groupIds.forEach(id => {
-      const group = groups.find(g => g.id === id);
-      if (group && Array.isArray(group.roles)) {
-        group.roles.forEach(role => {
+const getRoleNamesForGroups = (groupIds) => {
+  if (!Array.isArray(groupIds) || !Array.isArray(groups) || !Array.isArray(roles)) return '';
+  const uniqueRoleNames = new Set();
+  
+  groupIds.forEach(id => {
+    const group = groups.find(g => g.id === id);
+    if (group && Array.isArray(group.roleIds)) {
+      // If group has roleIds array, get role names from roles prop
+      group.roleIds.forEach(roleId => {
+        const role = roles.find(r => r.id === roleId);
+        if (role) {
           uniqueRoleNames.add(role.name);
-        });
-      }
-    });
-    return Array.from(uniqueRoleNames).join(', ');
-  };
+        }
+      });
+    } else if (group && Array.isArray(group.roles)) {
+      // If group has roles array directly
+      group.roles.forEach(role => {
+        if (typeof role === 'object' && role.name) {
+          uniqueRoleNames.add(role.name);
+        }
+      });
+    }
+  });
+  
+  return Array.from(uniqueRoleNames).join(', ');
+};
+  
 
   const getresourceName = (resourceId) => {
+    if (!Array.isArray(resources)) return resourceId;
     return resources.find(p => p.id === resourceId)?.name || resourceId;
   };
 
   const handleChange = async (e) => {
     const { name, value, type, checked } = e.target;
+    
+    if (name === 'nafath_id') {
+      // Only allow numbers and max 10 digits
+      const numericValue = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, nafath_id: numericValue }));
+      
+      // If user is entering nafath_id, fetch all users and filter in frontend
+      if (numericValue.length >= 10) {
+        try {
+          const res = await axios.get(`${API_BASE_URL}/users`);
+          const users = Array.isArray(res.data) ? res.data : [];
+          const userData = users.find(u => u.nafath_id === numericValue);
+          if (userData) {
+            setFetchError("");
+            setFormData(prev => ({
+              ...prev,
+              ...userData,
+              nafath_id: userData.nafath_id || numericValue,
+              groups: Array.isArray(userData.groups) ? userData.groups : [],
+              phone: userData.phone_number || '',
+            }));
+          } else {
+            // Do nothing if not found
+          }
+        } catch (err) {
+          setFetchError("Could not fetch users. Please try again later.");
+          console.error('Error fetching users:', err);
+        }
+      } else {
+        setFetchError("");
+      }
+      return;
+    }
+    
     if (name === 'roles') {
       // Multi-select for roles
       const roleId = parseInt(value, 10);
@@ -187,32 +236,6 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
       setFormData({ ...formData, phone_number: value });
     } else {
       setFormData({ ...formData, [name]: value });
-    }
-
-    // If user is entering nafath_id, fetch all users and filter in frontend
-    if (name === 'nafath_id' && value.length >= 10) {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/users`);
-        const users = Array.isArray(res.data) ? res.data : [];
-        const userData = users.find(u => u.nafath_id === value);
-        if (userData) {
-          setFetchError("");
-          setFormData(prev => ({
-            ...prev,
-            ...userData,
-            nafath_id: userData.nafath_id || value,
-            groups: Array.isArray(userData.groups) ? userData.groups : [],
-            phone: userData.phone_number || '',
-          }));
-        } else {
-          // Do nothing if not found
-        }
-      } catch (err) {
-        setFetchError("Could not fetch users. Please try again later.");
-        console.error('Error fetching users:', err);
-      }
-    } else if (name === 'nafath_id') {
-      setFetchError("");
     }
   };
 
@@ -304,10 +327,10 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
   const currentRoleNames = getRoleNamesForGroups(formData.groupIds || []);
   const currentResources = getResourcesForGroups(formData.groupIds || []);
   
-  const resourcesByCategory = resources.reduce((acc, p) => {
+  const resourcesByCategory = resources && Array.isArray(resources) ? resources.reduce((acc, p) => {
     (acc[p.category] = acc[p.category] || []).push(p);
     return acc;
-  }, {});
+  }, {}) : {};
   
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
@@ -338,6 +361,8 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
                   placeholder={formData.nafath_id || t('idPlaceholder')}
                   className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${!isNewUser ? 'bg-gray-100 cursor-not-allowed' : ''} ${language === 'ar' ? 'text-right' : ''}`}
                   readOnly={!isNewUser}
+                  inputMode="numeric"
+                  maxLength={10}
                 />
               </div>
             </div>
@@ -421,8 +446,6 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
                 </div>
               </div>
 
-               
-
               <div className="mb-6">
                 <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">{t('otherDetails')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -455,13 +478,10 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
                   </div>
                 </div>
               </div>
-
-          
-
             </>
           )}
 
- <div className="mb-6">
+          <div className="mb-6">
             <h4 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">{t('contactDetails')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -470,7 +490,6 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2" htmlFor="phone">{t('phone')}</label>
-                {/* <input type="string" id="phone" name="phone" value={formData.phone} onChange={handleChange} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${language === 'ar' ? 'text-right' : ''}`} /> */}
                 <input type="string" id="phone_number" name="phone_number" value={formData.phone_number} onChange={handleChange} className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${language === 'ar' ? 'text-right' : ''}`} />
               </div>
             </div>
@@ -478,7 +497,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2">{t('groupsLabel')}</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {groups.map(group => (
+              {Array.isArray(groups) && groups.map(group => (
                 <label key={group.id} className={`flex items-center space-x-2 text-gray-700 ${language === 'ar' ? 'flex-row-reverse space-x-reverse' : ''}`}>
                   <input
                     type="checkbox"

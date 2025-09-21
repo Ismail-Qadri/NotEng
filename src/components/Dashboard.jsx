@@ -134,19 +134,20 @@ const Dashboard = () => {
       const res = await axios.post(`${API_BASE_URL}/${type}`, data);
       console.log(`${type} created:`, res.data);
 
-      // Refresh the appropriate data
+      // Immediately update local state with the new item
+      const newItem = res.data;
       switch (type) {
         case "users":
-          fetchUsers();
+          setUsers(prev => [...prev, newItem]);
           break;
         case "groups":
-          fetchGroups();
+          setGroups(prev => [...prev, newItem]);
           break;
         case "roles":
-          fetchRoles();
+          setRoles(prev => [...prev, newItem]);
           break;
         case "resources":
-          fetchResources();
+          setResources(prev => [...prev, newItem]);
           break;
         default:
           break;
@@ -164,19 +165,20 @@ const Dashboard = () => {
       const res = await axios.put(`${API_BASE_URL}/${type}/${id}`, data);
       console.log(`${type} updated:`, res.data);
 
-      // Refresh the appropriate data
+      // Immediately update local state with the updated item
+      const updatedItem = res.data;
       switch (type) {
         case "users":
-          fetchUsers();
+          setUsers(prev => prev.map(item => item.id === id ? updatedItem : item));
           break;
         case "groups":
-          fetchGroups();
+          setGroups(prev => prev.map(item => item.id === id ? updatedItem : item));
           break;
         case "roles":
-          fetchRoles();
+          setRoles(prev => prev.map(item => item.id === id ? updatedItem : item));
           break;
         case "resources":
-          fetchResources();
+          setResources(prev => prev.map(item => item.id === id ? updatedItem : item));
           break;
         default:
           break;
@@ -194,7 +196,27 @@ const Dashboard = () => {
         await axios.delete(`${API_BASE_URL}/${type}/${id}`);
         console.log(`${type} deleted:`, id);
 
-        // Refresh the appropriate data
+        // Immediately remove the item from local state
+        switch (type) {
+          case "users":
+            setUsers(prev => prev.filter(item => item.id !== id));
+            break;
+          case "groups":
+            setGroups(prev => prev.filter(item => item.id !== id));
+            break;
+          case "roles":
+            setRoles(prev => prev.filter(item => item.id !== id));
+            break;
+          case "resources":
+            setResources(prev => prev.filter(item => item.id !== id));
+            break;
+          default:
+            break;
+        }
+      } catch (err) {
+        console.error(`Error deleting ${type}:`, err);
+        setError(err.response?.data?.message || err.message);
+        // On error, refetch to restore correct state
         switch (type) {
           case "users":
             fetchUsers();
@@ -211,9 +233,6 @@ const Dashboard = () => {
           default:
             break;
         }
-      } catch (err) {
-        console.error(`Error deleting ${type}:`, err);
-        setError(err.response?.data?.message || err.message);
       }
     }
   };
@@ -284,12 +303,15 @@ const Dashboard = () => {
           <UserModal
             isOpen={true}
             onClose={closeModal}
-            onSubmit={(data) =>
+            onSave={(data) =>
               editingItem
                 ? handleUpdate("users", editingItem.id, data)
                 : handleCreate("users", data)
             }
             user={editingItem}
+            groups={groups}
+            roles={roles}
+            resources={resources}
             language={language}
             t={t}
           />
@@ -299,12 +321,14 @@ const Dashboard = () => {
           <GroupModal
             isOpen={true}
             onClose={closeModal}
-            onSubmit={(data) =>
+            onSave={(data) =>
               editingItem
                 ? handleUpdate("groups", editingItem.id, data)
                 : handleCreate("groups", data)
             }
             group={editingItem}
+            users={users}
+            roles={roles}
             language={language}
             t={t}
           />
@@ -314,12 +338,14 @@ const Dashboard = () => {
           <RoleModal
             isOpen={true}
             onClose={closeModal}
-            onSubmit={(data) =>
+            onSave={(data) =>
               editingItem
                 ? handleUpdate("roles", editingItem.id, data)
                 : handleCreate("roles", data)
             }
             role={editingItem}
+            resources={resources}
+            permissions={permissions}
             language={language}
             t={t}
           />
@@ -329,7 +355,7 @@ const Dashboard = () => {
           <ResourceModal
             isOpen={true}
             onClose={closeModal}
-            onSubmit={(data) =>
+            onSave={(data) =>
               editingItem
                 ? handleUpdate("resources", editingItem.id, data)
                 : handleCreate("resources", data)
