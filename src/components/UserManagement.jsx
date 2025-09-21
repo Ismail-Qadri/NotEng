@@ -9,20 +9,20 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
   const getGroupNamesForUser = (userId) => {
     if (!Array.isArray(groups)) return '';
     const userGroups = groups.filter(group => 
-      Array.isArray(group.users) && group.users.some(user => user.id === userId)
+      Array.isArray(group?.users) && group.users.some(user => user?.id === userId)
     );
-    return userGroups.map(group => group.name).join(', ');
+    return userGroups.map(group => group?.name || '').join(', ');
   };
 
   // Get role names for a user based on which groups contain this user
   const getRoleNamesForUser = (userId) => {
     if (!Array.isArray(groups)) return '';
     const userGroups = groups.filter(group => 
-      Array.isArray(group.users) && group.users.some(user => user.id === userId)
+      Array.isArray(group?.users) && group.users.some(user => user?.id === userId)
     );
     // Each group should have only one role
     const roleNames = userGroups.flatMap(group => 
-      Array.isArray(group.roles) ? group.roles.map(role => role.name) : []
+      Array.isArray(group?.roles) ? group.roles.map(role => role?.name || '') : []
     ).filter(Boolean);
     // Remove duplicates
     const uniqueRoleNames = Array.from(new Set(roleNames));
@@ -69,9 +69,9 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {users && users.length === 0 && (
-              <tr><td colSpan={groups.length + 2} className="px-6 py-4 text-center text-gray-500">No users found</td></tr>
+              <tr><td colSpan={(groups?.length || 0) + 2} className="px-6 py-4 text-center text-gray-500">No users found</td></tr>
             )}
-            {users && users.map((user) => (
+            {Array.isArray(users) && users.map((user) => (
               <tr key={user.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.nafath_id || user.id}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
