@@ -58,40 +58,6 @@ const RoleManagement = ({
     });
   };
 
-  // const getAccessSummaryIcons = (role) => {
-  //     const byResource = {};
-  //     (role.policies || []).forEach(policy => {
-  //         const [sub, obj, act] = policy;
-  //         if (!byResource[obj]) byResource[obj] = [];
-  //         byResource[obj].push(act);
-  //     });
-
-  //     const entries = Object.entries(byResource);
-  //     if (entries.length === 0) return <span className="text-gray-400">No permissions</span>;
-
-  //     return entries.map(([resName, perms]) => (
-  //         <div key={resName} className="mb-1">
-  //            <span className="font-semibold text-gray-700 mr-2">{resName}:</span>
-  //             {perms.map((permId, idx) => {
-  //                 // Extract permission ID from "permission::1"
-  //                 const idMatch = String(permId).match(/permission::(\d+)/);
-  //                 const permObj = (Array.isArray(permissions) && idMatch)
-  //                     ? permissions.find(p => String(p.id) === idMatch[1])
-  //                     : null;
-  //                 const permName = permObj ? permObj.name : permId;
-  //                 const Icon = permissionIcons[permName] || Eye;
-  //                 return (
-  //                     <span key={idx} className="inline-flex items-center px-2 py-1 mr-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200" title={permName}>
-  //                         <Icon size={16} className="mr-1" />{permName}
-  //                     </span>
-  //                 );
-  //             })}
-  //         </div>
-  //     ));
-  // };
-
-  // Delete role
-
   const handleDelete = (id) => {
     if (onDelete) {
       onDelete(id);
