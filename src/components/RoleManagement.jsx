@@ -1,4 +1,4 @@
-import React from "react";
+import React , { useState} from "react";
 import {
   Plus,
   Edit,
@@ -9,6 +9,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import useLanguage from "../hooks/useLanguage";
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 const permissionIcons = {
   read: Eye,
@@ -26,7 +27,51 @@ const RoleManagement = ({
   onDelete,
   can,
 }) => {
-  const { t } = useLanguage();
+  // const { t } = useLanguage();
+   const { language, t } = useLanguage();
+    // const [userToDelete, setUserToDelete] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+const [roleToDelete, setRoleToDelete] = useState(null);
+const [deleteError, setDeleteError] = useState("");
+
+const handleDeleteClick = (role) => {
+  setRoleToDelete(role);
+  setDeleteError("");
+  setConfirmOpen(true);
+};
+
+const handleConfirmDelete = async () => {
+  setDeleteError("");
+  if (!roleToDelete) return;
+  try {
+    await onDelete(roleToDelete.id);
+    setConfirmOpen(false);
+    setRoleToDelete(null);
+  } catch (err) {
+    const apiData = err?.response?.data || {};
+    let errorMessage = "";
+    if (language === "ar" && apiData.errorMessage_AR) {
+      errorMessage = apiData.errorMessage_AR;
+    } else if (language === "en" && apiData.errorMessage_EN) {
+      errorMessage = apiData.errorMessage_EN;
+    } else {
+      errorMessage =
+        apiData.error ||
+        apiData.message ||
+        err?.message ||
+        t('apiErrorGeneric');
+    }
+    setDeleteError(errorMessage);
+  }
+};
+
+const handleCancelDelete = () => {
+  setConfirmOpen(false);
+  setRoleToDelete(null);
+  setDeleteError("");
+};
+
+
 
   const getUniquePermissionNames = (role, permissions) => {
     if (!role.policies || role.policies.length === 0) {
@@ -58,11 +103,7 @@ const RoleManagement = ({
     });
   };
 
-  const handleDelete = (id) => {
-    if (onDelete) {
-      onDelete(id);
-    }
-  };
+
 
   return (
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -137,7 +178,7 @@ const RoleManagement = ({
 
                     {can("Role Management", "delete") ? (
                       <button
-                        onClick={() => handleDelete(role.id)}
+                        onClick={() => handleDeleteClick(role)}
                         className="text-red-600 hover:text-red-900"
                       >
                         <Trash2 size={18} />
@@ -156,6 +197,13 @@ const RoleManagement = ({
           </tbody>
         </table>
       </div>
+     <ConfirmDeleteModal
+  open={confirmOpen}
+  message={t('deleteEntityConfirm', { entity: t('role') })}
+  onConfirm={handleConfirmDelete}
+  onCancel={handleCancelDelete}
+  error={deleteError}
+/>
     </div>
   );
 };

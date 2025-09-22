@@ -5,9 +5,9 @@ import axios from 'axios';
 
 // Map permission IDs to icons
 const permissionIconsById = {
-  1: Eye,     // read
-  2: Pencil,  // write
-  3: Trash2,  // delete
+  1: Eye,     
+  2: Pencil,  
+  3: Trash2,  
 };
 
 // Map permission IDs to names
@@ -20,7 +20,8 @@ const permissionNamesById = {
 const RoleModal = ({ resources, permissions, role, onClose, onSave, can }) => {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({ name: '', description: '' });
-  const [selected, setSelected] = useState({}); // { resourceName: [permissionName, ...] }
+  const [selected, setSelected] = useState({}); 
+  const isNewRole = !role || !role.id;
 
   // Fetch role data from API
   useEffect(() => {
@@ -146,7 +147,7 @@ const handleSubmit = async (e) => {
     }
 
     onSave();
-    onClose();
+    // onClose();
   } catch (err) {
     console.error("Save role failed:", err.response?.data || err.message);
     alert('Error saving role: ' + (err.response?.data?.message || err.message));

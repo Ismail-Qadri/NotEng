@@ -94,7 +94,7 @@ const GroupModal = ({ roles, onClose, onSave, group, can }) => {
     }
 
     onSave(res.data);
-    onClose();
+    // onClose();
   } catch (err) {
     console.error('Error saving group:', err.response || err);
     alert('Error saving group: ' + (err.response?.data?.message || err.message));

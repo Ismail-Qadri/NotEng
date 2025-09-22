@@ -1,13 +1,53 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Search, Users } from 'lucide-react';
 import useLanguage from '../hooks/useLanguage';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete, can }) => {
   const { language, t } = useLanguage();
 
   // Add search state
   const [search, setSearch] = useState('');
-
+   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  
+  const handleDeleteClick = (user) => {
+    setRoleToDelete(user);
+    setDeleteError("");
+    setConfirmOpen(true);
+  };
+  
+  const handleConfirmDelete = async () => {
+    setDeleteError("");
+    if (!roleToDelete) return;
+    try {
+      await onDelete(roleToDelete.id);
+      setConfirmOpen(false);
+      setRoleToDelete(null);
+    } catch (err) {
+      const apiData = err?.response?.data || {};
+      let errorMessage = "";
+      if (language === "ar" && apiData.errorMessage_AR) {
+        errorMessage = apiData.errorMessage_AR;
+      } else if (language === "en" && apiData.errorMessage_EN) {
+        errorMessage = apiData.errorMessage_EN;
+      } else {
+        errorMessage =
+          apiData.error ||
+          apiData.message ||
+          err?.message ||
+          t('apiErrorGeneric');
+      }
+      setDeleteError(errorMessage);
+    }
+  };
+  
+  const handleCancelDelete = () => {
+    setConfirmOpen(false);
+    setRoleToDelete(null);
+    setDeleteError("");
+  };
   // Get group names for a user based on which groups contain this user
   const getGroupNamesForUser = (userId) => {
     if (!Array.isArray(groups)) return '';
@@ -116,8 +156,9 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete, can }) 
                       const roleArr = roleNamesStr ? roleNamesStr.split(', ').filter(Boolean) : [];
                       return roleArr.map((roleName, index) => (
                         <span key={index} className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          roleName === 'admin' ? 'bg-red-100 text-red-800' :
-                          roleName === 'editor' ? 'bg-yellow-100 text-yellow-800' :
+                          roleName === 'User Admin' ? 'bg-red-100 text-red-800' :
+                          roleName === 'Resource Admin' ? 'bg-yellow-100 text-yellow-800' :
+                          roleName === 'Role Admin' ? 'bg-blue-100 text-blue-800' :
                           'bg-teal-100 text-teal-800'
                         }`}>
                           {roleName}
@@ -138,20 +179,32 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete, can }) 
                   )}
 
                   {can("User Management", "delete") ? (
-                    <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
-                      <Trash2 size={18} />
-                    </button>
-                  ) : (
-                    <button disabled className="opacity-50 cursor-not-allowed">
-                      <Trash2 size={18} />
-                    </button>
-                  )}
+  <button onClick={() => handleDeleteClick(user)} className="text-red-600 hover:text-red-900">
+    <Trash2 size={18} />
+  </button>
+) : (
+  <button disabled className="opacity-50 cursor-not-allowed">
+    <Trash2 size={18} />
+  </button>
+)}
+
+
+
+                  
+                        
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+   <ConfirmDeleteModal
+  open={confirmOpen}
+  message={t('deleteEntityConfirm', { entity: t('user') })}
+  onConfirm={handleConfirmDelete}
+  onCancel={handleCancelDelete}
+  error={deleteError}
+/>
     </div>
   );
 };

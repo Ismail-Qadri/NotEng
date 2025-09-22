@@ -13,43 +13,73 @@ const ResourceModal = ({ onClose, onSave, resource, can }) => {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      name: formData.name,
-      category: formData.category || '',
-      description: formData.description || ''
-    };
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   const payload = {
+  //     name: formData.name,
+  //     category: formData.category || '',
+  //     description: formData.description || ''
+  //   };
     
-    if (typeof onSave === 'function') {
-      const tempResource = {
-        id: Date.now(),
-        ...payload,
-        _optimistic: true
-      };
-      onSave(tempResource);
-    }
+  //   if (typeof onSave === 'function') {
+  //     const tempResource = {
+  //       id: Date.now(),
+  //       ...payload,
+  //       _optimistic: true
+  //     };
+  //     onSave(tempResource);
+  //   }
     
-    try {
-      const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api/resources';
-      let res;
-      if (resource && resource.id) {
-        res = await axios.put(`${API_BASE_URL}/${resource.id}`, payload);
-        if (typeof onSave === 'function') {
-          onSave(res.data);
-        }
-      } else {
-        res = await axios.post(`${API_BASE_URL}`, payload);
-        if (typeof onSave === 'function') {
-          onSave(res.data);
-        }
-      }
-      onClose();
-    } catch (err) {
-      alert('Error saving resource: ' + (err.response?.data?.message || err.message));
-      console.error('Error saving resource:', err);
-    }
+  //   try {
+  //     const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api/resources';
+  //     let res;
+  //     if (resource && resource.id) {
+  //       res = await axios.put(`${API_BASE_URL}/${resource.id}`, payload);
+  //       if (typeof onSave === 'function') {
+  //         onSave(res.data);
+  //       }
+  //     } else {
+  //       res = await axios.post(`${API_BASE_URL}`, payload);
+  //       if (typeof onSave === 'function') {
+  //         onSave(res.data);
+  //       }
+  //     }
+  //     onClose();
+  //   } catch (err) {
+  //     alert('Error saving resource: ' + (err.response?.data?.message || err.message));
+  //     console.error('Error saving resource:', err);
+  //   }
+  // };
+
+
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  const payload = {
+    name: formData.name,
+    category: formData.category || '',
+    description: formData.description || ''
   };
+
+  try {
+    const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api/resources';
+    let res;
+    if (resource && resource.id) {
+      res = await axios.put(`${API_BASE_URL}/${resource.id}`, payload);
+      if (typeof onSave === 'function') {
+        onSave(res.data);
+      }
+    } else {
+      res = await axios.post(`${API_BASE_URL}`, payload);
+      if (typeof onSave === 'function') {
+        onSave(res.data);
+      }
+    }
+    // onClose();
+  } catch (err) {
+    alert('Error saving resource: ' + (err.response?.data?.message || err.message));
+    console.error('Error saving resource:', err);
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">

@@ -81,6 +81,14 @@ const translations = {
     editResourceModal: 'Edit Resource',
     description: 'Description',
     assignedRoles: 'Assigned Roles',
+    deleteEntityConfirm: "This would permanently delete this {entity}. Do you want to proceed?",
+    group: 'group',
+    role: 'role',
+    resource: 'resource',
+    permission: 'permission',
+    user: 'user',
+        apiErrorGeneric: "An error occurred. Please try again.",
+
   },
   ar: {
     permissionManagement: 'إدارة الصلاحيات',
@@ -164,6 +172,12 @@ const translations = {
     editResourceModal: 'تعديل مورد',
 description: 'الوصف',
 assignedRoles: 'الأدوار المخصصة',
+    deleteEntityConfirm: "سيؤدي هذا إلى حذف هذا الـ{entity} نهائيًا. هل تريد المتابعة؟",
+    group: 'المجموعة',
+    role: 'الدور',
+    resource: 'المورد',
+    permission: 'الصلاحية',
+    user : 'المستخدم'
   }
 };
 

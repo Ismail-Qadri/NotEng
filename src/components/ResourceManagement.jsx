@@ -1,18 +1,54 @@
-import React from 'react';
+import React , { useState} from "react";
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import useLanguage from '../hooks/useLanguage';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) => {
-    const { t } = useLanguage();
+    const { language, t } = useLanguage();
 
-    const handleDelete = (id) => {
-        if (!window.confirm('Are you sure you want to delete this resource?')) return;
-        if (onDelete) {
-            onDelete(id);
-        }
-    };
+    const [confirmOpen, setConfirmOpen] = useState(false);
+const [resourceToDelete, setResourceToDelete] = useState(null);
+const [deleteError, setDeleteError] = useState("");
 
-    return (
+const handleDeleteClick = (resource) => {
+  setResourceToDelete(resource);
+  setDeleteError("");
+  setConfirmOpen(true);
+};
+
+const handleConfirmDelete = async () => {
+  setDeleteError("");
+  if (!resourceToDelete) return;
+  try {
+    await onDelete(resourceToDelete.id);
+    setConfirmOpen(false);
+    setResourceToDelete(null);
+  } catch (err) {
+    const apiData = err?.response?.data || {};
+    let errorMessage = "";
+    if (language === "ar" && apiData.errorMessage_AR) {
+      errorMessage = apiData.errorMessage_AR;
+    } else if (language === "en" && apiData.errorMessage_EN) {
+      errorMessage = apiData.errorMessage_EN;
+    } else {
+      errorMessage =
+        apiData.error ||
+        apiData.message ||
+        err?.message ||
+        t('apiErrorGeneric');
+    }
+    setDeleteError(errorMessage);
+  }
+};
+
+const handleCancelDelete = () => {
+  setConfirmOpen(false);
+  setResourceToDelete(null);
+  setDeleteError("");
+};
+
+
+   return (
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-700">{t('allResources')}</h2>
@@ -63,7 +99,7 @@ const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) =>
   )}
 
   {can("Resource Management", "delete") ? (
-    <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-900">
+    <button onClick={() => handleDeleteClick(p)} className="text-red-600 hover:text-red-900">
       <Trash2 size={18} />
     </button>
   ) : (
@@ -78,6 +114,13 @@ const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) =>
                     </tbody>
                 </table>
             </div>
+         <ConfirmDeleteModal
+  open={confirmOpen}
+  message={t('deleteEntityConfirm', { entity: t('resource') })}
+  onConfirm={handleConfirmDelete}
+  onCancel={handleCancelDelete}
+  error={deleteError}
+/>
         </div>
     );
 };

@@ -103,7 +103,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
               ...data,
               nafath_id: data.nafath_id || '',
               groups: Array.isArray(data.groups) ? data.groups : [],
-              phone: data.phone_number || '',
+              phone_number: data.phone_number || '',
               arNationality: data.nationality_ar || '',
               enNationality: data.nationality_en || '',
               idVersion: data.id_version || '',
@@ -125,7 +125,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
         ...user,
         nafath_id: user.nafath_id || '',
         groups: Array.isArray(user.groups) ? user.groups : [],
-        phone: user.phone_number || '',
+        phone_number: user.phone_number || '',
         arNationality: user.nationality_ar || '',
         enNationality: user.nationality_en || '',
         idVersion: user.id_version || '',
@@ -138,7 +138,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
       });
     }
   }, [user, isNewUser]);
-  
+
   const getResourcesForGroups = (groupIds) => {
     if (!Array.isArray(groupIds) || !Array.isArray(groups)) return [];
     const allResourceIds = groupIds.flatMap(id => {
@@ -150,34 +150,31 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
     });
     return Array.from(new Set(allResourceIds));
   };
-  
-const getRoleNamesForGroups = (groupIds) => {
-  if (!Array.isArray(groupIds) || !Array.isArray(groups) || !Array.isArray(roles)) return '';
-  const uniqueRoleNames = new Set();
-  
-  groupIds.forEach(id => {
-    const group = groups.find(g => g.id === id);
-    if (group && Array.isArray(group.roleIds)) {
-      // If group has roleIds array, get role names from roles prop
-      group.roleIds.forEach(roleId => {
-        const role = roles.find(r => r.id === roleId);
-        if (role) {
-          uniqueRoleNames.add(role.name);
-        }
-      });
-    } else if (group && Array.isArray(group.roles)) {
-      // If group has roles array directly
-      group.roles.forEach(role => {
-        if (typeof role === 'object' && role.name) {
-          uniqueRoleNames.add(role.name);
-        }
-      });
-    }
-  });
-  
-  return Array.from(uniqueRoleNames).join(', ');
-};
-  
+
+  const getRoleNamesForGroups = (groupIds) => {
+    if (!Array.isArray(groupIds) || !Array.isArray(groups) || !Array.isArray(roles)) return '';
+    const uniqueRoleNames = new Set();
+    
+    groupIds.forEach(id => {
+      const group = groups.find(g => g.id === id);
+      if (group && Array.isArray(group.roleIds)) {
+        group.roleIds.forEach(roleId => {
+          const role = roles.find(r => r.id === roleId);
+          if (role) {
+            uniqueRoleNames.add(role.name);
+          }
+        });
+      } else if (group && Array.isArray(group.roles)) {
+        group.roles.forEach(role => {
+          if (typeof role === 'object' && role.name) {
+            uniqueRoleNames.add(role.name);
+          }
+        });
+      }
+    });
+    
+    return Array.from(uniqueRoleNames).join(', ');
+  };
 
   const getresourceName = (resourceId) => {
     if (!Array.isArray(resources)) return resourceId;
@@ -188,11 +185,9 @@ const getRoleNamesForGroups = (groupIds) => {
     const { name, value, type, checked } = e.target;
     
     if (name === 'nafath_id') {
-      // Only allow numbers and max 10 digits
       const numericValue = value.replace(/\D/g, '').slice(0, 10);
       setFormData(prev => ({ ...prev, nafath_id: numericValue }));
       
-      // If user is entering nafath_id, fetch all users and filter in frontend
       if (numericValue.length >= 10) {
         try {
           const res = await axios.get(`${API_BASE_URL}/users`);
@@ -205,7 +200,7 @@ const getRoleNamesForGroups = (groupIds) => {
               ...userData,
               nafath_id: userData.nafath_id || numericValue,
               groups: Array.isArray(userData.groups) ? userData.groups : [],
-              phone: userData.phone_number || '',
+              phone_number: userData.phone_number || '',
             }));
           } else {
             // Do nothing if not found
@@ -221,7 +216,6 @@ const getRoleNamesForGroups = (groupIds) => {
     }
     
     if (name === 'roles') {
-      // Multi-select for roles
       const roleId = parseInt(value, 10);
       setFormData(prev => {
         let newRoles;
@@ -255,66 +249,45 @@ const getRoleNamesForGroups = (groupIds) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isNewUser) {
-      const nafathId = formData.nafath_id;
-      if (!nafathId || nafathId.length !== 10 || !/^[0-9]{10}$/.test(nafathId)) {
-        alert('National ID (nafath_id) must be exactly 10 digits.');
-        return;
-      }
-      // Only send nafath_id for new user
-      const payload = { nafath_id: formData.nafath_id };
-      try {
-        const userRes = await axios.post(`${API_BASE_URL}/users`, payload);
-        if (typeof onSave === 'function') onSave(userRes.data);
-      } catch (err) {
-        alert('Error saving user: ' + (err.response?.data?.message || err.message));
-        console.error('Error saving user:', err);
-      }
+    
+    // Validation: nafath_id must be exactly 10 digits
+    const nafathId = formData.nafath_id;
+    if (!nafathId || nafathId.length !== 10 || !/^[0-9]{10}$/.test(nafathId)) {
+      alert(t('invalidNafathId')); // Use translation for error message
       return;
     }
-    // Validation: nafath_id must be exactly 10 digits for new user
-    if (isNewUser) {
-      const nafathId = formData.nafath_id;
-      if (!nafathId || nafathId.length !== 10 || !/^[0-9]{10}$/.test(nafathId)) {
-        alert('National ID (nafath_id) must be exactly 10 digits.');
-        return;
-      }
-    }
+
     let payload;
-    if (isNewUser) {
-      // Only nafath_id required for new user
-      payload = { nafath_id: formData.nafath_id };
-    } else {
-      // For edit, send all fields
-      const requiredFields = [
-        'nafath_id', 'email', 'phone_number', 'first_name_ar', 'father_name_ar', 'grand_name_ar', 'family_name_ar',
-        'first_name_en', 'father_name_en', 'grand_name_en', 'family_name_en', 'gender', 'language', 'nationality',
-        'dob_g', 'dob_h', 'id_version', 'id_issue_date_g', 'id_issue_date_h', 'id_expiry_date_g', 'id_expiry_date_h',
-        'status'
-      ];
-      payload = {};
-      requiredFields.forEach(field => {
-        payload[field] = formData[field] !== undefined ? formData[field] : '';
-      });
-    }
-
+    let userId;
     try {
-      // Create or update user
-      let userRes;
       if (isNewUser) {
-        userRes = await axios.post(`${API_BASE_URL}/users`, payload);
+        // Create new user with nafath_id
+        payload = { nafath_id: formData.nafath_id };
+        const userRes = await axios.post(`${API_BASE_URL}/users`, payload);
+        userId = userRes.data?.id;
       } else {
-        userRes = await axios.put(`${API_BASE_URL}/users/${formData.id}`, payload);
+        // Update existing user
+        const requiredFields = [
+          'nafath_id', 'email', 'phone_number', 'first_name_ar', 'father_name_ar', 'grand_name_ar', 'family_name_ar',
+          'first_name_en', 'father_name_en', 'grand_name_en', 'family_name_en', 'gender', 'language', 'nationality',
+          'dob_g', 'dob_h', 'id_version', 'id_issue_date_g', 'id_issue_date_h', 'id_expiry_date_g', 'id_expiry_date_h',
+          'status'
+        ];
+        payload = {};
+        requiredFields.forEach(field => {
+          payload[field] = formData[field] !== undefined ? formData[field] : '';
+        });
+        const userRes = await axios.put(`${API_BASE_URL}/users/${formData.id}`, payload);
+        userId = userRes.data?.id || formData.id;
       }
-      const userId = userRes.data?.id || formData.id;
 
-      // Remove user from all groups first (for update)
-      if (!isNewUser && userId && Array.isArray(groups)) {
+      // Remove user from all groups (for both new and existing users)
+      if (userId && Array.isArray(groups)) {
         for (const group of groups) {
           try {
             await axios.delete(`${API_BASE_URL}/associations/groups/${group.id}/users/${userId}`);
           } catch (err) {
-            // Ignore errors for groups user isn't in
+            // Ignore errors for groups the user isn't in
           }
         }
       }
@@ -326,21 +299,26 @@ const getRoleNamesForGroups = (groupIds) => {
             await axios.post(`${API_BASE_URL}/associations/groups/${groupId}/users`, { userId });
           } catch (assocErr) {
             console.error(`Error associating user with group ${groupId}:`, assocErr);
+            alert(t('errorAssociatingGroup', { groupId }));
           }
         }
       }
 
-      // Call parent's onSave handler to refresh data in UserManagement table
+      // Call parent's onSave handler to refresh data
       if (typeof onSave === 'function') {
-        onSave(userRes.data); // This should trigger a fetch in UserManagement table
+        onSave({ ...formData, id: userId });
       }
+      onClose(); // Close modal on success
     } catch (err) {
-      alert('Error saving user: ' + (err.response?.data?.message || err.message));
+      const errorMessage =
+        language === 'AR' && err?.response?.data?.errorMessage_AR
+          ? err.response.data.errorMessage_AR
+          : err?.response?.data?.errorMessage_EN || err?.message || t('apiErrorGeneric');
+      alert(t(`apiError.${errorMessage}`, errorMessage));
       console.error('Error saving user:', err);
     }
   };
-  
-  // Use groupIds for role/resource mapping
+
   const currentRoleNames = getRoleNamesForGroups(formData.groupIds || []);
   const currentResources = getResourcesForGroups(formData.groupIds || []);
   
@@ -348,7 +326,9 @@ const getRoleNamesForGroups = (groupIds) => {
     (acc[p.category] = acc[p.category] || []).push(p);
     return acc;
   }, {}) : {};
-  
+
+
+
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 mt-10 transform transition-transform scale-100 max-h-[75vh] flex flex-col">
