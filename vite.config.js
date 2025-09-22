@@ -1,17 +1,23 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    rollupOptions: {
-      input: {
-        main: './index.html'
-      }
-    }
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+      process: 'process/browser',
+      path: 'path-browserify',
+      util: 'util',
+      crypto: 'crypto-browserify',
+      stream: 'stream-browserify',
+    },
   },
-  base: './'
+  define: {
+    global: 'globalThis',
+    'process.env': {},
+  },
+  optimizeDeps: {
+    include: ['buffer', 'process', 'path-browserify', 'util', 'crypto-browserify', 'stream-browserify'],
+  },
 });

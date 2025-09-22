@@ -28,6 +28,107 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("users");
   const { language, setLanguage, t } = useLanguage();
 
+  // CASBIN SETUP ONLY
+  const [casbinEnforcer, setCasbinEnforcer] = useState(null);
+  const [casbinLoading, setCasbinLoading] = useState(true);
+
+// Add state to cache policies
+const [casbinPolicies, setCasbinPolicies] = useState([]);
+
+// Update your setupCasbin to cache policies
+useEffect(() => {
+  async function setupCasbin() {
+    setCasbinLoading(true);
+
+    if (!resources.length || !permissions.length) {
+      setCasbinLoading(false);
+      return;
+    }
+
+    const userId = localStorage.getItem("userId");
+    const userPerms = JSON.parse(localStorage.getItem("userPermissions") || "{}");
+
+    // Build Casbin policy array
+    const policyRules = [];
+    Object.entries(userPerms).forEach(([resourceId, permIds]) => {
+      const resource = resources.find(r => String(r.id) === String(resourceId));
+      if (!resource) return;
+      permIds.forEach(permId => {
+        const perm = permissions.find(p => String(p.id) === String(permId));
+        if (!perm) return;
+        policyRules.push(['p', userId, resource.name, perm.name]);
+      });
+    });
+
+    console.log("Generated Casbin Policy Rules:", policyRules);
+
+    const modelText = `
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
+`;
+
+    try {
+      const casbin = await import('casbin');
+      const enforcer = await casbin.newEnforcer();
+      const model = casbin.newModel();
+      model.loadModelFromText(modelText);
+      enforcer.setModel(model);
+      
+      // Add policies one by one
+      for (const rule of policyRules) {
+        await enforcer.addPolicy(...rule.slice(1)); // Remove 'p' prefix
+      }
+
+      // Get and cache the policies
+      const policies = await enforcer.getPolicy();
+      console.log("All policies:", policies);
+      
+      setCasbinEnforcer(enforcer);
+      setCasbinPolicies(policies); // Cache the policies
+      setCasbinLoading(false);
+    } catch (error) {
+      console.error('Error setting up Casbin:', error);
+      setCasbinLoading(false);
+    }
+  }
+
+  setupCasbin();
+}, [resources, permissions]);
+
+// Update your can function to use cached policies
+const can = (resourceName, action) => {
+  const userId = localStorage.getItem("userId");
+  
+  if (!casbinEnforcer || !userId || !resourceName || !action || !Array.isArray(casbinPolicies)) {
+    return false;
+  }
+  
+  try {
+    const hasPermission = casbinPolicies.some(policy => 
+      Array.isArray(policy) &&
+      policy[0] === userId && 
+      policy[1] === resourceName && 
+      policy[2] === action
+    );
+    
+
+    return hasPermission;
+  } catch (error) {
+    console.error('Error checking Casbin permission:', error);
+    return false;
+  }
+};
+
+
   // Fetch roles from API
   const fetchRoles = async () => {
     try {
@@ -38,6 +139,7 @@ const Dashboard = () => {
     } catch (err) {
       setError && setError(err.message);
       console.error("Error fetching roles:", err);
+
     }
   };
 
@@ -87,7 +189,7 @@ const Dashboard = () => {
             if (a.createdAt && b.createdAt) {
               return new Date(a.createdAt) - new Date(b.createdAt);
             }
-            return 0; // fallback: keep order as is
+            return 0;
           })
         : res.data;
       setUsers(sortedUsers);
@@ -128,113 +230,39 @@ const Dashboard = () => {
     setEditingItem(null);
   };
 
-  const handleCreate = async (type, data) => {
-    try {
-      console.log(`Creating ${type}:`, data);
-      const res = await axios.post(`${API_BASE_URL}/${type}`, data);
-      console.log(`${type} created:`, res.data);
+  const refreshAll = async () => {
+    await Promise.all([
+      fetchUsers(),
+      fetchGroups(),
+      fetchRoles(),
+      fetchResources(),
+      fetchPermissions(),
+    ]);
+  };
 
-      // Immediately update local state with the new item
-      const newItem = res.data;
-      switch (type) {
-        case "users":
-          setUsers(prev => [...prev, newItem]);
-          break;
-        case "groups":
-          setGroups(prev => [...prev, newItem]);
-          break;
-        case "roles":
-          setRoles(prev => [...prev, newItem]);
-          break;
-        case "resources":
-          setResources(prev => [...prev, newItem]);
-          break;
-        default:
-          break;
-      }
-      closeModal();
+  const afterSaveOrEdit = async () => {
+    await refreshAll();
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDelete = async (endpoint, itemId) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/${endpoint}/${itemId}`);
+      await refreshAll();
     } catch (err) {
-      console.error(`Error creating ${type}:`, err);
-      setError(err.response?.data?.message || err.message);
+      console.error(`Error deleting from ${endpoint}:`, err);
     }
   };
 
-  const handleUpdate = async (type, id, data) => {
-    try {
-      console.log(`Updating ${type} ${id}:`, data);
-      const res = await axios.put(`${API_BASE_URL}/${type}/${id}`, data);
-      console.log(`${type} updated:`, res.data);
-
-      // Immediately update local state with the updated item
-      const updatedItem = res.data;
-      switch (type) {
-        case "users":
-          setUsers(prev => prev.map(item => item.id === id ? updatedItem : item));
-          break;
-        case "groups":
-          setGroups(prev => prev.map(item => item.id === id ? updatedItem : item));
-          break;
-        case "roles":
-          setRoles(prev => prev.map(item => item.id === id ? updatedItem : item));
-          break;
-        case "resources":
-          setResources(prev => prev.map(item => item.id === id ? updatedItem : item));
-          break;
-        default:
-          break;
-      }
-      closeModal();
-    } catch (err) {
-      console.error(`Error updating ${type}:`, err);
-      setError(err.response?.data?.message || err.message);
-    }
+  const openAddModal = (type) => {
+    setEditingItem(null);
+    setIsModalOpen({ type });
   };
 
-  const handleDelete = async (type, id) => {
-    if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
-      try {
-        await axios.delete(`${API_BASE_URL}/${type}/${id}`);
-        console.log(`${type} deleted:`, id);
-
-        // Immediately remove the item from local state
-        switch (type) {
-          case "users":
-            setUsers(prev => prev.filter(item => item.id !== id));
-            break;
-          case "groups":
-            setGroups(prev => prev.filter(item => item.id !== id));
-            break;
-          case "roles":
-            setRoles(prev => prev.filter(item => item.id !== id));
-            break;
-          case "resources":
-            setResources(prev => prev.filter(item => item.id !== id));
-            break;
-          default:
-            break;
-        }
-      } catch (err) {
-        console.error(`Error deleting ${type}:`, err);
-        setError(err.response?.data?.message || err.message);
-        // On error, refetch to restore correct state
-        switch (type) {
-          case "users":
-            fetchUsers();
-            break;
-          case "groups":
-            fetchGroups();
-            break;
-          case "roles":
-            fetchRoles();
-            break;
-          case "resources":
-            fetchResources();
-            break;
-          default:
-            break;
-        }
-      }
-    }
+  const openEditModal = (type, item) => {
+    setEditingItem(item);
+    setIsModalOpen({ type });
   };
 
   const renderCurrentScreen = () => {
@@ -245,11 +273,12 @@ const Dashboard = () => {
             users={users}
             groups={groups}
             roles={roles}
-            onEdit={(user) => openModal("users", user)}
+            onEdit={(item) => openEditModal("user", item)}
             onDelete={(id) => handleDelete("users", id)}
-            onAdd={() => openModal("users")}
+            onAdd={() => openAddModal("user")}
             language={language}
             t={t}
+            can={can}
           />
         );
       case "groups":
@@ -258,11 +287,12 @@ const Dashboard = () => {
             groups={groups}
             roles={roles}
             users={users}
-            onEdit={(group) => openModal("groups", group)}
+            onEdit={(item) => openEditModal("group", item)}
             onDelete={(id) => handleDelete("groups", id)}
-            onAdd={() => openModal("groups")}
+            onAdd={() => openAddModal("group")}
             language={language}
             t={t}
+            can={can}
           />
         );
       case "roles":
@@ -271,22 +301,24 @@ const Dashboard = () => {
             roles={roles}
             resources={resources}
             permissions={permissions}
-            onEdit={(role) => openModal("roles", role)}
+            onEdit={(item) => openEditModal("role", item)}
             onDelete={(id) => handleDelete("roles", id)}
-            onAdd={() => openModal("roles")}
+            onAdd={() => openAddModal("role")}
             language={language}
             t={t}
+            can={can}
           />
         );
       case "resources":
         return (
           <ResourceManagement
             resources={resources}
-            onEdit={(resource) => openModal("resources", resource)}
+            onEdit={(item) => openEditModal("resource", item)}
             onDelete={(id) => handleDelete("resources", id)}
-            onAdd={() => openModal("resources")}
+            onAdd={() => openAddModal("resource")}
             language={language}
             t={t}
+            can={can}
           />
         );
       default:
@@ -297,78 +329,66 @@ const Dashboard = () => {
   const renderModal = () => {
     if (!isModalOpen) return null;
 
-    switch (isModalOpen) {
-      case "users":
+    switch (isModalOpen.type) {
+      case "user":
         return (
           <UserModal
-            isOpen={true}
-            onClose={closeModal}
-            onSave={(data) =>
-              editingItem
-                ? handleUpdate("users", editingItem.id, data)
-                : handleCreate("users", data)
-            }
-            user={editingItem}
             groups={groups}
             roles={roles}
             resources={resources}
-            language={language}
-            t={t}
+            onClose={closeModal}
+            onSave={afterSaveOrEdit}
+            user={editingItem}
+            can={can}
           />
         );
-      case "groups":
+      case "group":
         return (
           <GroupModal
-            isOpen={true}
-            onClose={closeModal}
-            onSave={(data) =>
-              editingItem
-                ? handleUpdate("groups", editingItem.id, data)
-                : handleCreate("groups", data)
-            }
-            group={editingItem}
-            users={users}
+            groups={groups}
             roles={roles}
-            language={language}
-            t={t}
+            onClose={closeModal}
+            onSave={afterSaveOrEdit}
+            group={editingItem}
+            can={can}
           />
         );
-      case "roles":
+      case "role":
         return (
           <RoleModal
-            isOpen={true}
-            onClose={closeModal}
-            onSave={(data) =>
-              editingItem
-                ? handleUpdate("roles", editingItem.id, data)
-                : handleCreate("roles", data)
-            }
-            role={editingItem}
             resources={resources}
             permissions={permissions}
-            language={language}
-            t={t}
+            onClose={closeModal}
+            onSave={afterSaveOrEdit}
+            role={editingItem}
+            can={can}
           />
         );
-      case "resources":
+      case "resource":
         return (
           <ResourceModal
-            isOpen={true}
             onClose={closeModal}
-            onSave={(data) =>
-              editingItem
-                ? handleUpdate("resources", editingItem.id, data)
-                : handleCreate("resources", data)
-            }
+            onSave={afterSaveOrEdit}
             resource={editingItem}
-            language={language}
-            t={t}
+            can={can}
           />
         );
       default:
         return null;
     }
   };
+
+  // CASBIN LOADING CHECK
+  if (casbinLoading || !casbinEnforcer) {
+    return (
+      <>
+        <Navbar />
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg">Loading Casbin permissions...</div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -386,51 +406,60 @@ const Dashboard = () => {
                   {t("permissionManagement")}
                 </h1>
               </div>
+              {/* CASBIN-BASED NAVIGATION */}
               <nav
                 className={`flex items-center space-x-2 p-1 bg-white rounded-full shadow-lg ${
                   language === "ar" ? "flex-row-reverse space-x-reverse" : ""
                 }`}
               >
-                <button
-                  onClick={() => setActiveTab("users")}
-                  className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
-                    activeTab === "users"
-                      ? "bg-[#166a45] text-white"
-                      : "text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <User size={18} className="me-2" /> {t("users")}
-                </button>
-                <button
-                  onClick={() => setActiveTab("groups")}
-                  className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
-                    activeTab === "groups"
-                      ? "bg-[#166a45] text-white"
-                      : "text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <Users size={18} className="me-2" /> {t("groups")}
-                </button>
-                <button
-                  onClick={() => setActiveTab("roles")}
-                  className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
-                    activeTab === "roles"
-                      ? "bg-[#166a45] text-white"
-                      : "text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <Shield size={18} className="me-2" /> {t("roles")}
-                </button>
-                <button
-                  onClick={() => setActiveTab("resources")}
-                  className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
-                    activeTab === "resources"
-                      ? "bg-[#166a45] text-white"
-                      : "text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <Settings size={18} className="me-2" /> {t("resources")}
-                </button>
+                {/* {can("User Management", "read") && ( */}
+                  <button
+                    onClick={() => setActiveTab("users")}
+                    className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
+                      activeTab === "users"
+                        ? "bg-[#166a45] text-white"
+                        : "text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <User size={18} className="me-2" /> {t("users")}
+                  </button>
+                {/* )} */}
+                {can("Group Management", "read") && (
+                  <button
+                    onClick={() => setActiveTab("groups")}
+                    className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
+                      activeTab === "groups"
+                        ? "bg-[#166a45] text-white"
+                        : "text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Users size={18} className="me-2" /> {t("groups")}
+                  </button>
+                )}
+                {can("Role Management", "read") && (
+                  <button
+                    onClick={() => setActiveTab("roles")}
+                    className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
+                      activeTab === "roles"
+                        ? "bg-[#166a45] text-white"
+                        : "text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Shield size={18} className="me-2" /> {t("roles")}
+                  </button>
+                )}
+                {can("Resource Management", "read") && (
+                  <button
+                    onClick={() => setActiveTab("resources")}
+                    className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
+                      activeTab === "resources"
+                        ? "bg-[#166a45] text-white"
+                        : "text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Settings size={18} className="me-2" /> {t("resources")}
+                  </button>
+                )}
               </nav>
             </header>
             {renderCurrentScreen()}

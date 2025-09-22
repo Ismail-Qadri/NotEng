@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Search, Users } from 'lucide-react';
 import useLanguage from '../hooks/useLanguage';
 
-const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
+const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete, can }) => {
   const { language, t } = useLanguage();
+
+  // Add search state
+  const [search, setSearch] = useState('');
 
   // Get group names for a user based on which groups contain this user
   const getGroupNamesForUser = (userId) => {
@@ -36,25 +39,44 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
     }
   };
 
+  // Filter users by nafath_id or id or name (case-insensitive)
+  const filteredUsers = users
+  ? users.filter(user => {
+      const searchValue = search.trim();
+      if (!searchValue) return true;
+      // Only match if nafath_id or id starts with the search value
+      return (
+        (user.nafath_id && user.nafath_id.toString().startsWith(searchValue)) ||
+        (user.id && user.id.toString().startsWith(searchValue)) ||
+        (user.name && user.name.toLowerCase().startsWith(searchValue.toLowerCase()))
+      );
+    })
+  : [];
+
   return (
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
       <div className="p-6 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-700">{t('allUsers')}</h2>
         <div className={`flex items-center space-x-4 ${language === 'ar' ? 'flex-row-reverse space-x-reverse' : ''}`}>
           <div className="relative">
-            <input
-              type="text"
-              placeholder={t('searchUsers')}
-              className={`ps-10 pe-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors duration-200 ${language === 'ar' ? 'text-right' : ''}`}
-            />
+           <input
+  type="text"
+  placeholder={t('searchUsers')}
+  value={search}
+  onChange={e => {
+    // Only allow digits
+    const numericValue = e.target.value.replace(/\D/g, '');
+    setSearch(numericValue);
+  }}
+  className={`ps-10 pe-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors duration-200 ${language === 'ar' ? 'text-right' : ''}`}
+/>
             <Search size={18} className={`absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400 ${language === 'ar' ? 'right-3' : 'left-3'}`} />
           </div>
-          <button
-            onClick={onAdd}
-            className="flex items-center px-4 py-2 bg-[#166a45] text-white font-semibold rounded-full shadow-md hover:bg-[#104631] transition duration-300"
-          >
-            <Plus size={16} className="me-2" /> {t('addUser')}
-          </button>
+          {can("User Management", "write") && (
+            <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full">
+              <Plus size={16} className="me-2" /> {t('addUser')}
+            </button>
+          )}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -68,10 +90,10 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {users && users.length === 0 && (
+            {filteredUsers && filteredUsers.length === 0 && (
               <tr><td colSpan={groups.length + 2} className="px-6 py-4 text-center text-gray-500">No users found</td></tr>
             )}
-            {users && users.map((user) => (
+            {filteredUsers && filteredUsers.map((user) => (
               <tr key={user.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.nafath_id || user.id}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -105,12 +127,25 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button onClick={() => { console.log('Edit user:', user); onEdit(user); }} className="text-teal-600 hover:text-teal-900 transition-colors duration-200 me-4">
-                    <Edit size={18} />
-                  </button>
-                  <button onClick={() => { console.log('Delete user:', user.id); handleDelete(user.id); }} className="text-red-600 hover:text-red-900 transition-colors duration-200">
-                    <Trash2 size={18} />
-                  </button>
+                  {can("User Management", "write") ? (
+                    <button onClick={() => onEdit(user)} className="text-teal-600 hover:text-teal-900 me-4">
+                      <Edit size={18} />
+                    </button>
+                  ) : (
+                    <button disabled className="opacity-50 cursor-not-allowed me-4">
+                      <Edit size={18} />
+                    </button>
+                  )}
+
+                  {can("User Management", "delete") ? (
+                    <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
+                      <Trash2 size={18} />
+                    </button>
+                  ) : (
+                    <button disabled className="opacity-50 cursor-not-allowed">
+                      <Trash2 size={18} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -122,4 +157,3 @@ const UserManagement = ({ users, groups, roles, onEdit, onAdd, onDelete }) => {
 };
 
 export default UserManagement;
-

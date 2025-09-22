@@ -3,7 +3,7 @@ import { X, CheckCircle2 } from 'lucide-react';
 import useLanguage from '../hooks/useLanguage';
 import axios from "axios";
 
-const UserModal = ({ groups, roles, resources, onClose, onSave, user }) => {
+const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => {
   const { language, t } = useLanguage();
   const [nafathId, setNafathId] = useState("");
   const [fetchError, setFetchError] = useState("");
@@ -255,6 +255,23 @@ const getRoleNamesForGroups = (groupIds) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isNewUser) {
+      const nafathId = formData.nafath_id;
+      if (!nafathId || nafathId.length !== 10 || !/^[0-9]{10}$/.test(nafathId)) {
+        alert('National ID (nafath_id) must be exactly 10 digits.');
+        return;
+      }
+      // Only send nafath_id for new user
+      const payload = { nafath_id: formData.nafath_id };
+      try {
+        const userRes = await axios.post(`${API_BASE_URL}/users`, payload);
+        if (typeof onSave === 'function') onSave(userRes.data);
+      } catch (err) {
+        alert('Error saving user: ' + (err.response?.data?.message || err.message));
+        console.error('Error saving user:', err);
+      }
+      return;
+    }
     // Validation: nafath_id must be exactly 10 digits for new user
     if (isNewUser) {
       const nafathId = formData.nafath_id;
@@ -529,12 +546,32 @@ const getRoleNamesForGroups = (groupIds) => {
             >
               {t('cancel')}
             </button>
-            <button
+            {/* <button
               type="submit"
               className="px-6 py-2 bg-[#166a45] text-white font-semibold rounded-full shadow-md hover:bg-[#104631] transition-colors duration-200"
             >
               {t('save')}
-            </button>
+            </button> */}
+            <button
+  type="submit"
+  disabled={
+    isNewUser 
+      ? !can("User Management", "write")   // if creating user
+      : !can("User Management", "write")   // if editing user
+  }
+  className={`px-6 py-2 rounded-full shadow-md font-semibold transition-colors duration-200 ${
+    isNewUser
+      ? can("User Management", "write")
+        ? "bg-[#166a45] text-white hover:bg-[#104631]"
+        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+      : can("User Management", "write")
+        ? "bg-[#166a45] text-white hover:bg-[#104631]"
+        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+  }`}
+>
+  {t('save')}
+</button>
+
           </div>
         </form>
       </div>

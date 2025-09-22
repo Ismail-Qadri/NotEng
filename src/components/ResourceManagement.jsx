@@ -2,7 +2,7 @@ import React from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import useLanguage from '../hooks/useLanguage';
 
-const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete }) => {
+const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) => {
     const { t } = useLanguage();
 
     const handleDelete = (id) => {
@@ -16,9 +16,16 @@ const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete }) => {
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-700">{t('allResources')}</h2>
-                <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white font-semibold rounded-full shadow-md hover:bg-[#104631] transition">
+                {/* <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white font-semibold rounded-full shadow-md hover:bg-[#104631] transition">
                     <Plus size={16} className="me-2" /> {t('addResource')}
-                </button>
+                </button> */}
+
+                {can("Resource Management", "write") && (
+  <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full">
+    <Plus size={16} className="me-2" /> {t('addResource')}
+  </button>
+)}
+
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -39,10 +46,33 @@ const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs">{p.id}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.category}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <button onClick={() => onEdit(p)} className="text-teal-600 hover:text-teal-900 me-4" aria-label={t('editResource')}><Edit size={18} /></button>
                                     <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-900" aria-label={t('deleteResource')}><Trash2 size={18} /></button>
-                                </td>
+                                </td> */}
+
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+  {can("Resource Management", "write") ? (
+    <button onClick={() => onEdit(p)} className="text-teal-600 hover:text-teal-900 me-4">
+      <Edit size={18} />
+    </button>
+  ) : (
+    <button disabled className="opacity-50 cursor-not-allowed me-4">
+      <Edit size={18} />
+    </button>
+  )}
+
+  {can("Resource Management", "delete") ? (
+    <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-900">
+      <Trash2 size={18} />
+    </button>
+  ) : (
+    <button disabled className="opacity-50 cursor-not-allowed">
+      <Trash2 size={18} />
+    </button>
+  )}
+</td>
+
                             </tr>
                         ))}
                     </tbody>

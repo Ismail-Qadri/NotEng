@@ -3,8 +3,12 @@ import { X } from 'lucide-react';
 import useLanguage from '../hooks/useLanguage';
 import axios from 'axios';
 
-const ResourceModal = ({ onClose, onSave, resource }) => {
+const ResourceModal = ({ onClose, onSave, resource, can }) => {
   const { t } = useLanguage();
+  
+  // ADD THIS LINE - Define isNewResource
+  const isNewResource = !resource || !resource.id;
+  const isEdit = !!resource && !!resource.id;
   const [formData, setFormData] = useState(resource || { name: '', category: '', description: '' });
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -16,27 +20,25 @@ const ResourceModal = ({ onClose, onSave, resource }) => {
       category: formData.category || '',
       description: formData.description || ''
     };
-    // Optimistic UI: update parent immediately
+    
     if (typeof onSave === 'function') {
-      // Create a temporary resource object
       const tempResource = {
-        id: Date.now(), // Temporary ID
+        id: Date.now(),
         ...payload,
         _optimistic: true
       };
       onSave(tempResource);
     }
+    
     try {
       const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api/resources';
       let res;
       if (resource && resource.id) {
-        // Edit resource
         res = await axios.put(`${API_BASE_URL}/${resource.id}`, payload);
         if (typeof onSave === 'function') {
           onSave(res.data);
         }
       } else {
-        // Create new resource
         res = await axios.post(`${API_BASE_URL}`, payload);
         if (typeof onSave === 'function') {
           onSave(res.data);
@@ -59,7 +61,7 @@ const ResourceModal = ({ onClose, onSave, resource }) => {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2" htmlFor="name">{t('name')}</label>
-            <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
+            <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required readOnly={isEdit} />
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2" htmlFor="category">{t('category')}</label>
@@ -71,11 +73,26 @@ const ResourceModal = ({ onClose, onSave, resource }) => {
           </div>
           <div className="flex justify-end space-x-4">
             <button type="button" onClick={onClose} className="px-6 py-2 border rounded-full">{t('cancel')}</button>
-            <button type="submit" className="px-6 py-2 bg-[#166a45] text-white rounded-full">{t('save')}</button>
+            <button
+              type="submit"
+              disabled={
+                isNewResource
+                  ? !can("Resource Management", "write")  // Use "write" instead of "create"
+                  : !can("Resource Management", "write")  // Use "write" instead of "update"
+              }
+              className={`px-6 py-2 rounded-full shadow-md font-semibold transition-colors duration-200 ${
+                can("Resource Management", "write")
+                  ? "bg-[#166a45] text-white hover:bg-[#104631]"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              {t('save')}
+            </button>
           </div>
         </form>
       </div>
     </div>
   );
 };
+
 export default ResourceModal;

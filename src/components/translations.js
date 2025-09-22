@@ -49,7 +49,7 @@ const translations = {
     addGroup: 'Add Group',
     allGroups: 'All Groups',
     groupName: 'Group Name',
-    assignedRole: 'Assigned Role',
+    assignedRole: 'Assigned Role(s)',
     userCount: 'User Count',
     addRole: 'Add Role',
     allRoles: 'All Roles',
