@@ -87,7 +87,9 @@ const translations = {
     resource: 'resource',
     permission: 'permission',
     user: 'user',
-        apiErrorGeneric: "An error occurred. Please try again.",
+    apiErrorGeneric: "An error occurred. Please try again.",
+    proceed: "Proceed",
+    cancel: "Cancel",
 
   },
   ar: {
@@ -177,7 +179,9 @@ assignedRoles: 'الأدوار المخصصة',
     role: 'الدور',
     resource: 'المورد',
     permission: 'الصلاحية',
-    user : 'المستخدم'
+    user : 'المستخدم',
+    proceed: "متابعة",
+    cancel: "إلغاء",
   }
 };
 
