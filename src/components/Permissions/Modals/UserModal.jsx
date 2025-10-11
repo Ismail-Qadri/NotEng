@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2 } from 'lucide-react';
-import useLanguage from '../hooks/useLanguage';
+import useLanguage from '../../../hooks/useLanguage';
 import axios from "axios";
 
 const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => {

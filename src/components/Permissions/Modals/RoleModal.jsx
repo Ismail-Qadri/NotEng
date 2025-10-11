@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Eye, Pencil, Trash2 } from 'lucide-react';
-import useLanguage from '../hooks/useLanguage';
+import useLanguage from '../../../hooks/useLanguage';
 import axios from 'axios';
 
 // Map permission IDs to icons

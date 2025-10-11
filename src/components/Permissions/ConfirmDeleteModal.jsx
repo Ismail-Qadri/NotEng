@@ -1,5 +1,5 @@
 import React from "react";
-import useLanguage from "../hooks/useLanguage";
+import useLanguage from "../../hooks/useLanguage";
 
 const ConfirmDeleteModal = ({ open, message, error, onConfirm, onCancel }) => {
   if (!open) return null;

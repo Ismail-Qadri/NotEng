@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
-import useLanguage from "../hooks/useLanguage";
+import useLanguage from "../../hooks/useLanguage";
 import { User, Users, Shield, Settings } from "lucide-react";
-import UserManagement from "./UserManagement";
-import GroupManagement from "./GroupManagement";
-import RoleManagement from "./RoleManagement";
-import ResourceManagement from "./ResourceManagement";
-import UserModal from "../Modals/UserModal";
-import GroupModal from "../Modals/GroupModal";
-import RoleModal from "../Modals/RoleModal";
-import ResourceModal from "../Modals/ResourceModal";
-import Navbar from "./Navbar";
+import UserManagement from "./MainPage/UserManagement";
+import GroupManagement from "./MainPage/GroupManagement";
+import RoleManagement from "./MainPage/RoleManagement";
+import ResourceManagement from "./MainPage/ResourceManagement";
+import UserModal from "./Modals/UserModal";
+import GroupModal from "./Modals/GroupModal";
+import RoleModal from "./Modals/RoleModal";
+import ResourceModal from "./Modals/ResourceModal";
+import Navbar from "../Navbar";
 import axios from "axios";
 
 const API_BASE_URL = "https://dev-api.wedo.solutions:3000/api";
@@ -27,8 +27,6 @@ const api = axios.create({
 //   return config;
 // });
 
-  
-
 const Dashboard = () => {
   const [resources, setResources] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -40,18 +38,16 @@ const Dashboard = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  // const [activeTab, setActiveTab] = useState("");
+
   const [activeTab, setActiveTab] = useState(null);
   const { language, setLanguage, t } = useLanguage();
 
-  // CASBIN SETUP ONLY
+  // CASBIN SETUP
   const [casbinEnforcer, setCasbinEnforcer] = useState(null);
   const [casbinLoading, setCasbinLoading] = useState(true);
 
-  // Add state to cache policies
   const [casbinPolicies, setCasbinPolicies] = useState([]);
-
-  // Update your setupCasbin to cache policies
+  
   useEffect(() => {
     async function setupCasbin() {
       setCasbinLoading(true);
@@ -62,57 +58,61 @@ const Dashboard = () => {
       }
 
       const userId = localStorage.getItem("userId");
-      const userPerms = JSON.parse(localStorage.getItem("userPermissions") || "{}");
+      const userPerms = JSON.parse(
+        localStorage.getItem("userPermissions") || "{}"
+      );
 
       // Build Casbin policy array
       const policyRules = [];
       Object.entries(userPerms).forEach(([resourceId, permIds]) => {
-        const resource = resources.find(r => String(r.id) === String(resourceId));
+        const resource = resources.find(
+          (r) => String(r.id) === String(resourceId)
+        );
         if (!resource) return;
-        permIds.forEach(permId => {
-          const perm = permissions.find(p => String(p.id) === String(permId));
+        permIds.forEach((permId) => {
+          const perm = permissions.find((p) => String(p.id) === String(permId));
           if (!perm) return;
-          policyRules.push(['p', userId, resource.name, perm.name]);
+          policyRules.push(["p", userId, resource.name, perm.name]);
         });
       });
 
       console.log("Generated Casbin Policy Rules:", policyRules);
 
       const modelText = `
-[request_definition]
-r = sub, obj, act
+              [request_definition]
+              r = sub, obj, act
 
-[policy_definition]
-p = sub, obj, act
+              [policy_definition]
+              p = sub, obj, act
 
-[policy_effect]
-e = some(where (p.eft == allow))
+              [policy_effect]
+              e = some(where (p.eft == allow))
 
-[matchers]
-m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
+              [matchers]
+              m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
 `;
 
       try {
-        const casbin = await import('casbin');
+        const casbin = await import("casbin");
         const enforcer = await casbin.newEnforcer();
         const model = casbin.newModel();
         model.loadModelFromText(modelText);
         enforcer.setModel(model);
-        
+
         // Add policies one by one
         for (const rule of policyRules) {
-          await enforcer.addPolicy(...rule.slice(1)); // Remove 'p' prefix
+          await enforcer.addPolicy(...rule.slice(1)); 
         }
 
         // Get and cache the policies
         const policies = await enforcer.getPolicy();
         console.log("All policies:", policies);
-        
+
         setCasbinEnforcer(enforcer);
-        setCasbinPolicies(policies); // Cache the policies
+        setCasbinPolicies(policies);
         setCasbinLoading(false);
       } catch (error) {
-        console.error('Error setting up Casbin:', error);
+        console.error("Error setting up Casbin:", error);
         setCasbinLoading(false);
       }
     }
@@ -120,31 +120,35 @@ m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
     setupCasbin();
   }, [resources, permissions]);
 
-
   // Update your can function to use cached policies
   const can = (resourceName, action) => {
     const userId = localStorage.getItem("userId");
-    
-    if (!casbinEnforcer || !userId || !resourceName || !action || !Array.isArray(casbinPolicies)) {
+
+    if (
+      !casbinEnforcer ||
+      !userId ||
+      !resourceName ||
+      !action ||
+      !Array.isArray(casbinPolicies)
+    ) {
       return false;
     }
-    
+
     try {
-      const hasPermission = casbinPolicies.some(policy => 
-        Array.isArray(policy) &&
-        policy[0] === userId && 
-        policy[1] === resourceName && 
-        policy[2] === action
+      const hasPermission = casbinPolicies.some(
+        (policy) =>
+          Array.isArray(policy) &&
+          policy[0] === userId &&
+          policy[1] === resourceName &&
+          policy[2] === action
       );
-      
 
       return hasPermission;
     } catch (error) {
-      console.error('Error checking Casbin permission:', error);
+      console.error("Error checking Casbin permission:", error);
       return false;
     }
   };
-
 
   useEffect(() => {
     if (!casbinLoading && casbinEnforcer) {
@@ -169,7 +173,6 @@ m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
     } catch (err) {
       setError && setError(err.message);
       console.error("Error fetching roles:", err);
-
     }
   };
 
@@ -270,11 +273,11 @@ m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
     ]);
   };
 
- const afterSaveOrEdit = async () => {
-  await refreshAll();         // 1. Refresh data first
-  setIsModalOpen(false);      // 2. Then close the modal
-  setEditingItem(null);       // 3. Then clear editing state
-};
+  const afterSaveOrEdit = async () => {
+    await refreshAll(); // 1. Refresh data first
+    setIsModalOpen(false); // 2. Then close the modal
+    setEditingItem(null); // 3. Then clear editing state
+  };
 
   const handleDelete = async (endpoint, itemId) => {
     try {
@@ -454,7 +457,7 @@ m = r.sub == p.sub && r.obj == p.obj && r.act == p.act
                   >
                     <User size={18} className="me-2" /> {t("users")}
                   </button>
-                )} 
+                )}
                 {can("Group Management", "read") && (
                   <button
                     onClick={() => setActiveTab("groups")}

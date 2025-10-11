@@ -8,6 +8,8 @@ const Navbar = () => {
   const menuRef = useRef(null);
   const btnRef = useRef(null);
   const langBtnRef = useRef(null);
+  const [activeLink, setActiveLink] = useState(window.location.pathname);
+
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -112,32 +114,41 @@ const Navbar = () => {
         <hr className="border-gray-200" />
 
         {/* Links */}
-        <div className="mt-5 grid gap-4">
-          <a
-            href="/"
-            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-teal-50 transition-colors shadow-sm border border-gray-100"
-          >
-            <span className="font-semibold text-[14px] text-[#1757a3]">
-              {isArabic ? "إدارة الصلاحيات" : "Managing Permissions"}
-            </span>
-          </a>
-          <a
-            href="/"
-            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-teal-50 transition-colors shadow-sm border border-gray-100"
-          >
-            <span className="font-semibold text-[14px] ">
-              {isArabic ? "إدارة الإشعارات" : "Managing Notifications"}
-            </span>
-          </a>
-          <a
-            href="/"
-            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-teal-50 transition-colors shadow-sm border border-gray-100"
-          >
-            <span className="font-semibold text-[14px] ">
-              {isArabic ? "لوحات المؤشرات" : "Dashboard"}
-            </span>
-          </a>
-        </div>
+      <div className="mt-5 grid gap-4">
+  <a
+    href="/permissions"
+    onClick={() => setActiveLink("/permissions")}
+    className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
+      ${activeLink === "/permissions" ? "bg-green-200 bg text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
+    `}
+  >
+    <span className="font-semibold text-[14px]">
+      {isArabic ? "إدارة الصلاحيات" : "Managing Permissions"}
+    </span>
+  </a>
+  <a
+    href="/notifications"
+    onClick={() => setActiveLink("/notifications")}
+    className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100 
+      ${activeLink === "/notifications" ? "bg-green-200 bg text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
+    `}
+  >
+    <span className="font-semibold text-[14px] ">
+      {isArabic ? "إدارة الإشعارات" : "Managing Notifications"}
+    </span>
+  </a>
+  <a
+    href="/"
+    onClick={() => setActiveLink("/")}
+    className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
+      ${activeLink === "/" ? "bg-green-200 bg text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
+    `}
+  >
+    <span className="font-semibold text-[14px] ">
+      {isArabic ? "لوحات المؤشرات" : "Dashboard"}
+    </span>
+  </a>
+</div>
       </div>
     </>
   );

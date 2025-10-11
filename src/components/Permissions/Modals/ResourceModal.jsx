@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import useLanguage from '../hooks/useLanguage';
+import useLanguage from '../../../hooks/useLanguage';
 import axios from 'axios';
 
 const ResourceModal = ({ onClose, onSave, resource, can }) => {

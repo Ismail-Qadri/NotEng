@@ -1,8 +1,9 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Dashboard from "./components/Dashboard";
+import Dashboard from "./components/Permissions/Dashboard";
 import Login from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
+import NotificationsDashboard from "./components/Notifications/NotificationsDashboard";
 
 const App = () => {
   return (
@@ -14,6 +15,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsDashboard />
             </ProtectedRoute>
           }
         />

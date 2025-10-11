@@ -8,8 +8,8 @@ import {
   Trash2 as TrashIcon,
   PlusCircle,
 } from "lucide-react";
-import useLanguage from "../hooks/useLanguage";
-import ConfirmDeleteModal from './ConfirmDeleteModal';
+import useLanguage from "../../../hooks/useLanguage";
+import ConfirmDeleteModal from '../ConfirmDeleteModal';
 
 const permissionIcons = {
   read: Eye,

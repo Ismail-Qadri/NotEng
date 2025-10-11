@@ -1,8 +1,8 @@
 
 import React, { useState } from "react";
 import { Plus, Edit, Trash2 } from 'lucide-react';
-import useLanguage from '../hooks/useLanguage';
-import ConfirmDeleteModal from './ConfirmDeleteModal';
+import useLanguage from "../../../hooks/useLanguage";
+import ConfirmDeleteModal from '../ConfirmDeleteModal';
 
 const GroupManagement = ({ groups, roles, users, onEdit, onAdd, onDelete, can }) => {
   const { language, t } = useLanguage();
