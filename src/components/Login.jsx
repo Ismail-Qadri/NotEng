@@ -1,5 +1,7 @@
 ﻿import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../api";
+import { getNafathIdFromJWT } from "../utils/jwt";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -9,59 +11,70 @@ const Login = () => {
   const [randomNumber, setRandomNumber] = useState("");
   const [ws, setWs] = useState(null);
 
-  // Close error handler
   const closeError = () => {
     setError({ show: false, message: "", code: "" });
   };
 
-  // Show error
   const showError = (message, code) => {
     setError({ show: true, message, code });
     setWaiting(false);
   };
 
-  // Show waiting screen
   const showWaitingScreen = (number) => {
     setWaiting(true);
     setRandomNumber(number);
     setError({ show: false, message: "", code: "" });
   };
 
-  const fetchUserPermissions = async (nafathId) => {
-  try {
-    const res = await fetch(
-      `https://dev-api.wedo.solutions:3000/api/auth/user-permissions?casbin_subject=${nafathId}`
-    );
-    const result = await res.json();
-    console.log("Raw API response:", result);
+  // Fetch permissions based on decoded nafathId from JWT, send JWT as x-nafath-id header
+  const fetchUserPermissions = async (jwtToken) => {
+    try {
+      const nafathId = getNafathIdFromJWT(jwtToken);
+      if (!nafathId) throw new Error("Nafath ID not found in token");
 
-    // result.data is an array of arrays
-    const permissionsMap = {};
+      console.log("✅ Decoded nafathId from JWT:", nafathId);
+      console.log("📡 Fetching permissions for nafathId:", nafathId);
 
-    result.data.forEach(([roleStr, resourceStr, permissionStr]) => {
-      const resourceId = resourceStr.split("::")[1]; // e.g., "1"
-      const permissionId = permissionStr.split("::")[1]; // e.g., "1"
+      // Send JWT as x-nafath-id header
+      const res = await api.get(
+        `/auth/user-permissions?casbin_subject=${nafathId}`,
+        {
+          headers: {
+            "x-nafath-id": jwtToken,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          }
+        }
+      );
+      const result = res.data;
+      console.log("✅ Raw permissions API response:", result);
 
-      if (!permissionsMap[resourceId]) permissionsMap[resourceId] = [];
-      permissionsMap[resourceId].push(permissionId);
-    });
+      const permissionsMap = {};
+      result.data.forEach(([roleStr, resourceStr, permissionStr]) => {
+        const resourceId = resourceStr.split("::")[1];
+        const permissionId = permissionStr.split("::")[1];
+        if (!permissionsMap[resourceId]) permissionsMap[resourceId] = [];
+        permissionsMap[resourceId].push(permissionId);
+      });
 
-    console.log("Processed permissions:", permissionsMap);
+      localStorage.setItem("userId", jwtToken);
+      localStorage.setItem("userPermissions", JSON.stringify(permissionsMap));
 
-    // Store in localStorage
-    localStorage.setItem("userPermissions", JSON.stringify(permissionsMap));
+      // Show userPermissions in console
+      console.log("🔑 userPermissions in localStorage:", localStorage.getItem("userPermissions"));
 
-    // Navigate to permissions page
-    navigate("/permissions");
+      navigate("/permissions");
+    } catch (err) {
+      console.error("❌ Failed to fetch user permissions:", err);
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to fetch user permissions";
+      showError(errorMessage, "ERR_PERMISSIONS_010");
+    }
+  };
 
-  } catch (err) {
-    console.error("Failed to fetch user permissions:", err);
-    showError("Failed to fetch user permissions", "ERR_PERMISSIONS_010");
-  }
-};
-
-
-  // Handle login submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -71,22 +84,21 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch(
-        "https://dev-api.wedo.solutions:3000/api/auth/login",
+      const response = await api.post(
+        "/auth/login",
+        { id: id.trim() },
         {
-          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ id: id.trim() }),
         }
       );
 
-      const result = await response.json();
+      const result = response.data;
       console.log("Login response:", result);
 
-      if (response.ok && result.random && result.sessionId) {
+      if (response.status === 200 && result.random && result.sessionId) {
         showWaitingScreen(result.random);
 
         const wsUrl = `wss://dev-api.wedo.solutions:3000/ws?sessionId=${result.sessionId}`;
@@ -107,13 +119,13 @@ const Login = () => {
             const status = data.status?.toUpperCase();
 
             if (status === "COMPLETED" || status === "APPROVED") {
-              if (data.userId) localStorage.setItem("userId", data.userId);
-              if (data.nafathId) localStorage.setItem("nafathId", data.nafathId);
-
-              // Fetch permissions using casbin_subject (==Nafath ID)
-              const casbinId = data.nafathId || data.userId;
-              fetchUserPermissions(casbinId);
-
+              const jwtToken = data.userId;
+              if (jwtToken) {
+                localStorage.setItem("userId", jwtToken);
+                fetchUserPermissions(jwtToken);
+              } else {
+                showError("No token received from server", "ERR_NO_TOKEN");
+              }
             } else if (status === "REJECTED") {
               socket.close();
               showError("Request is rejected", "ERR_REQUEST_REJECTED_005");
@@ -141,7 +153,7 @@ const Login = () => {
         let errorCode = "ERR_GENERAL_LOGIN_008";
 
         if (response.status === 400) errorCode = "ERR_INVALID_REQUEST_001";
-        else if (response.status === 401) errorCode = "ERR_UNAUTHORIZED_001";
+        else if (response.status === 401) errorCode = "ERR_UNAUTHORIZED_401";
         else if (response.status === 500) errorCode = "ERR_SERVER_ERROR_002";
 
         showError(errorMessage, errorCode);
@@ -152,7 +164,6 @@ const Login = () => {
     }
   };
 
-  // Cleanup WebSocket on unmount
   useEffect(() => {
     return () => {
       if (ws) ws.close();
@@ -162,7 +173,6 @@ const Login = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#f9fcfd] font-['Segoe_UI',Arial,sans-serif]" style={{position: 'relative', zIndex: 10}}>
       <div className="w-full max-w-md" style={{position: 'relative', zIndex: 20}}>
-        {/* Error */}
         {error.show && (
           <div className="flex justify-between items-center bg-red-50 border border-red-300 rounded-md p-3 mb-4 text-red-700">
             <div className="flex items-center gap-2">
@@ -180,7 +190,6 @@ const Login = () => {
           </div>
         )}
 
-        {/* Login Form */}
         {!waiting && !error.show && (
           <div className="login-card w-[360px] p-8 bg-white border border-gray-200 rounded-lg shadow text-center">
             <h2 className="mb-5 text-lg font-semibold text-gray-800">
@@ -212,7 +221,6 @@ const Login = () => {
           </div>
         )}
 
-        {/* Waiting Screen */}
         {waiting && (
           <div className="text-center p-10">
             <div className="login-card w-[360px] p-8 bg-white border border-gray-200 rounded-lg shadow text-center">

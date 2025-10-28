@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import axios from 'axios';
+import api from '../../../api'; // ✅ Use api instance instead of axios
 
 const GroupModal = ({ roles, onClose, onSave, group, can }) => {
   const { language, t } = useLanguage();
@@ -43,68 +43,67 @@ const GroupModal = ({ roles, onClose, onSave, group, can }) => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api';
-  const groupData = {
-    name: formData.name,
-    description: formData.description || '',
+    e.preventDefault();
+    const groupData = {
+      name: formData.name,
+      description: formData.description || '',
+    };
+
+    try {
+      let res;
+      let groupId;
+
+      if (group && group.id) {
+        // Update existing group
+        res = await api.put(`/groups/${group.id}`, groupData);
+        groupId = group.id;
+      } else {
+        // Create new group
+        res = await api.post(`/groups`, groupData);
+        groupId = res.data?.id;
+      }
+
+      if (!groupId) throw new Error('Group ID missing from API response');
+
+      // Use roles from the group prop if editing, otherwise empty array
+      const currentRoleIds = group && Array.isArray(group.roles)
+        ? group.roles.map(r => r.id)
+        : [];
+
+      // Roles to add and remove
+      const rolesToAdd = formData.selectedRoleIds.filter(id => !currentRoleIds.includes(id));
+      const rolesToRemove = currentRoleIds.filter(id => !formData.selectedRoleIds.includes(id));
+
+      // Add new roles
+      for (const roleId of rolesToAdd) {
+        try {
+          await api.post(`/associations/groups/${groupId}/roles`, { roleId });
+        } catch (err) {
+          console.error('Error adding role', roleId, err.response || err);
+        }
+      }
+
+      // Remove unchecked roles
+      for (const roleId of rolesToRemove) {
+        try {
+          await api.delete(`/associations/groups/${groupId}/roles/${roleId}`);
+        } catch (err) {
+          console.error('Error removing role', roleId, err.response || err);
+        }
+      }
+
+      onSave(res.data);
+      // onClose();
+    } catch (err) {
+      console.error('Error saving group:', err.response || err);
+      alert('Error saving group: ' + (err.response?.data?.message || err.message));
+    }
   };
-
-  try {
-    let res;
-    let groupId;
-
-    if (group && group.id) {
-      // Update existing group
-      res = await axios.put(`${API_BASE_URL}/groups/${group.id}`, groupData);
-      groupId = group.id;
-    } else {
-      // Create new group
-      res = await axios.post(`${API_BASE_URL}/groups`, groupData);
-      groupId = res.data?.id;
-    }
-
-    if (!groupId) throw new Error('Group ID missing from API response');
-
-    // Use roles from the group prop if editing, otherwise empty array
-    const currentRoleIds = group && Array.isArray(group.roles)
-      ? group.roles.map(r => r.id)
-      : [];
-
-    // Roles to add and remove
-    const rolesToAdd = formData.selectedRoleIds.filter(id => !currentRoleIds.includes(id));
-    const rolesToRemove = currentRoleIds.filter(id => !formData.selectedRoleIds.includes(id));
-
-    // Add new roles
-    for (const roleId of rolesToAdd) {
-      try {
-        await axios.post(`${API_BASE_URL}/associations/groups/${groupId}/roles`, { roleId });
-      } catch (err) {
-        console.error('Error adding role', roleId, err.response || err);
-      }
-    }
-
-    // Remove unchecked roles
-    for (const roleId of rolesToRemove) {
-      try {
-        await axios.delete(`${API_BASE_URL}/associations/groups/${groupId}/roles/${roleId}`);
-      } catch (err) {
-        console.error('Error removing role', roleId, err.response || err);
-      }
-    }
-
-    onSave(res.data);
-    // onClose();
-  } catch (err) {
-    console.error('Error saving group:', err.response || err);
-    alert('Error saving group: ' + (err.response?.data?.message || err.message));
-  }
-};
 
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 transform transition-transform scale-100">
+      <div className="mt-16 bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 transform transition-transform scale-100">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold text-gray-800">
             {group ? t('editGroupModal') : t('addGroupModal')}
@@ -126,6 +125,7 @@ const GroupModal = ({ roles, onClose, onSave, group, can }) => {
               type="text"
               id="name"
               name="name"
+              placeholder={t('groupNamePlaceholder') || 'Enter group name'}
               value={formData.name}
               onChange={handleChange}
               className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors duration-200 ${
@@ -178,7 +178,7 @@ const GroupModal = ({ roles, onClose, onSave, group, can }) => {
             <p className="text-sm text-gray-500 mt-1">
               {formData.selectedRoleIds.length === 0 
                 ? (t('noRolesSelected') || 'No roles selected')
-                : `${formData.selectedRoleIds.length} role(s) selected`}
+                : `${formData.selectedRoleIds.length} (${t('rolesSelected')})`}
             </p>
           </div>
 
@@ -213,3 +213,12 @@ const GroupModal = ({ roles, onClose, onSave, group, can }) => {
 };
 
 export default GroupModal;
+
+
+
+
+
+
+
+
+

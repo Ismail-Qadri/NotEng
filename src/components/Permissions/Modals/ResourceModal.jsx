@@ -1,85 +1,43 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import axios from 'axios';
+import api from '../../../api'; // ✅ Use api instance instead of axios
 
 const ResourceModal = ({ onClose, onSave, resource, can }) => {
   const { t } = useLanguage();
-  
-  // ADD THIS LINE - Define isNewResource
   const isNewResource = !resource || !resource.id;
   const isEdit = !!resource && !!resource.id;
   const [formData, setFormData] = useState(resource || { name: '', category: '', description: '' });
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   const payload = {
-  //     name: formData.name,
-  //     category: formData.category || '',
-  //     description: formData.description || ''
-  //   };
-    
-  //   if (typeof onSave === 'function') {
-  //     const tempResource = {
-  //       id: Date.now(),
-  //       ...payload,
-  //       _optimistic: true
-  //     };
-  //     onSave(tempResource);
-  //   }
-    
-  //   try {
-  //     const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api/resources';
-  //     let res;
-  //     if (resource && resource.id) {
-  //       res = await axios.put(`${API_BASE_URL}/${resource.id}`, payload);
-  //       if (typeof onSave === 'function') {
-  //         onSave(res.data);
-  //       }
-  //     } else {
-  //       res = await axios.post(`${API_BASE_URL}`, payload);
-  //       if (typeof onSave === 'function') {
-  //         onSave(res.data);
-  //       }
-  //     }
-  //     onClose();
-  //   } catch (err) {
-  //     alert('Error saving resource: ' + (err.response?.data?.message || err.message));
-  //     console.error('Error saving resource:', err);
-  //   }
-  // };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      name: formData.name,
+      category: formData.category || '',
+      description: formData.description || ''
+    };
 
-
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  const payload = {
-    name: formData.name,
-    category: formData.category || '',
-    description: formData.description || ''
-  };
-
-  try {
-    const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api/resources';
-    let res;
-    if (resource && resource.id) {
-      res = await axios.put(`${API_BASE_URL}/${resource.id}`, payload);
-      if (typeof onSave === 'function') {
-        onSave(res.data);
+    try {
+      let res;
+      if (resource && resource.id) {
+        res = await api.put(`/resources/${resource.id}`, payload);
+        if (typeof onSave === 'function') {
+          onSave(res.data);
+        }
+      } else {
+        res = await api.post(`/resources`, payload);
+        if (typeof onSave === 'function') {
+          onSave(res.data);
+        }
       }
-    } else {
-      res = await axios.post(`${API_BASE_URL}`, payload);
-      if (typeof onSave === 'function') {
-        onSave(res.data);
-      }
+      // onClose();
+    } catch (err) {
+      alert('Error saving resource: ' + (err.response?.data?.message || err.message));
+      console.error('Error saving resource:', err);
     }
-    // onClose();
-  } catch (err) {
-    alert('Error saving resource: ' + (err.response?.data?.message || err.message));
-    console.error('Error saving resource:', err);
-  }
-};
+  };
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
@@ -91,15 +49,15 @@ const ResourceModal = ({ onClose, onSave, resource, can }) => {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2" htmlFor="name">{t('name')}</label>
-            <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required readOnly={isEdit} />
+            <input type="text" placeholder={t('resourceNamePlaceholder') || 'Enter resource name'} id="name" name="name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required readOnly={isEdit} />
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2" htmlFor="category">{t('category')}</label>
-            <input type="text" id="category" name="category" value={formData.category || ''} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
+            <input type="text" placeholder={t('categoryNamePlaceholder') || 'Enter category'} id="category" name="category" value={formData.category || ''} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2" htmlFor="description">{t('description')}</label>
-            <input type="text" id="description" name="description" value={formData.description || ''} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
+            <input type="text" id="description" placeholder={t('descriptionNamePlaceholder') || 'Enter description'} name="description" value={formData.description || ''} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
           </div>
           <div className="flex justify-end space-x-4">
             <button type="button" onClick={onClose} className="px-6 py-2 border rounded-full">{t('cancel')}</button>
@@ -107,8 +65,8 @@ const ResourceModal = ({ onClose, onSave, resource, can }) => {
               type="submit"
               disabled={
                 isNewResource
-                  ? !can("Resource Management", "write")  // Use "write" instead of "create"
-                  : !can("Resource Management", "write")  // Use "write" instead of "update"
+                  ? !can("Resource Management", "write")
+                  : !can("Resource Management", "write")
               }
               className={`px-6 py-2 rounded-full shadow-md font-semibold transition-colors duration-200 ${
                 can("Resource Management", "write")

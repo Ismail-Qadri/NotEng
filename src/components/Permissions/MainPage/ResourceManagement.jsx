@@ -2,66 +2,66 @@ import React , { useState} from "react";
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
 import ConfirmDeleteModal from '../ConfirmDeleteModal';
+import api from "../../../api"; // ✅ Import the api instance
 
 const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) => {
     const { language, t } = useLanguage();
 
     const [confirmOpen, setConfirmOpen] = useState(false);
-const [resourceToDelete, setResourceToDelete] = useState(null);
-const [deleteError, setDeleteError] = useState("");
+    const [resourceToDelete, setResourceToDelete] = useState(null);
+    const [deleteError, setDeleteError] = useState("");
 
-const handleDeleteClick = (resource) => {
-  setResourceToDelete(resource);
-  setDeleteError("");
-  setConfirmOpen(true);
-};
+    const handleDeleteClick = (resource) => {
+      setResourceToDelete(resource);
+      setDeleteError("");
+      setConfirmOpen(true);
+    };
 
-const handleConfirmDelete = async () => {
-  setDeleteError("");
-  if (!resourceToDelete) return;
-  try {
-    await onDelete(resourceToDelete.id);
-    setConfirmOpen(false);
-    setResourceToDelete(null);
-  } catch (err) {
-    const apiData = err?.response?.data || {};
-    let errorMessage = "";
-    if (language === "ar" && apiData.errorMessage_AR) {
-      errorMessage = apiData.errorMessage_AR;
-    } else if (language === "en" && apiData.errorMessage_EN) {
-      errorMessage = apiData.errorMessage_EN;
-    } else {
-      errorMessage =
-        apiData.error ||
-        apiData.message ||
-        err?.message ||
-        t('apiErrorGeneric');
-    }
-    setDeleteError(errorMessage);
-  }
-};
+    // Use api instance for delete if onDelete is not provided
+    const handleConfirmDelete = async () => {
+      setDeleteError("");
+      if (!resourceToDelete) return;
+      try {
+        if (onDelete) {
+          await onDelete(resourceToDelete.id);
+        } else {
+          await api.delete(`/resources/${resourceToDelete.id}`); // ✅ Use api instance here
+        }
+        setConfirmOpen(false);
+        setResourceToDelete(null);
+      } catch (err) {
+        const apiData = err?.response?.data || {};
+        let errorMessage = "";
+        if (language === "ar" && apiData.errorMessage_AR) {
+          errorMessage = apiData.errorMessage_AR;
+        } else if (language === "en" && apiData.errorMessage_EN) {
+          errorMessage = apiData.errorMessage_EN;
+        } else {
+          errorMessage =
+            apiData.error ||
+            apiData.message ||
+            err?.message ||
+            t('apiErrorGeneric');
+        }
+        setDeleteError(errorMessage);
+      }
+    };
 
-const handleCancelDelete = () => {
-  setConfirmOpen(false);
-  setResourceToDelete(null);
-  setDeleteError("");
-};
-
+    const handleCancelDelete = () => {
+      setConfirmOpen(false);
+      setResourceToDelete(null);
+      setDeleteError("");
+    };
 
    return (
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-700">{t('allResources')}</h2>
-                {/* <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white font-semibold rounded-full shadow-md hover:bg-[#104631] transition">
-                    <Plus size={16} className="me-2" /> {t('addResource')}
-                </button> */}
-
                 {can("Resource Management", "write") && (
-  <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full">
-    <Plus size={16} className="me-2" /> {t('addResource')}
-  </button>
-)}
-
+                  <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full">
+                    <Plus size={16} className="me-2" /> {t('addResource')}
+                  </button>
+                )}
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -82,45 +82,39 @@ const handleCancelDelete = () => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs">{p.id}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.category}</td>
-                                {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button onClick={() => onEdit(p)} className="text-teal-600 hover:text-teal-900 me-4" aria-label={t('editResource')}><Edit size={18} /></button>
-                                    <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-900" aria-label={t('deleteResource')}><Trash2 size={18} /></button>
-                                </td> */}
-
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-  {can("Resource Management", "write") ? (
-    <button onClick={() => onEdit(p)} className="text-teal-600 hover:text-teal-900 me-4">
-      <Edit size={18} />
-    </button>
-  ) : (
-    <button disabled className="opacity-50 cursor-not-allowed me-4">
-      <Edit size={18} />
-    </button>
-  )}
+                                  {can("Resource Management", "write") ? (
+                                    <button onClick={() => onEdit(p)} className="text-teal-600 hover:text-teal-900 me-4">
+                                      <Edit size={18} />
+                                    </button>
+                                  ) : (
+                                    <button disabled className="opacity-50 cursor-not-allowed me-4">
+                                      <Edit size={18} />
+                                    </button>
+                                  )}
 
-  {can("Resource Management", "delete") ? (
-    <button onClick={() => handleDeleteClick(p)} className="text-red-600 hover:text-red-900">
-      <Trash2 size={18} />
-    </button>
-  ) : (
-    <button disabled className="opacity-50 cursor-not-allowed">
-      <Trash2 size={18} />
-    </button>
-  )}
-</td>
-
+                                  {can("Resource Management", "delete") ? (
+                                    <button onClick={() => handleDeleteClick(p)} className="text-red-600 hover:text-red-900">
+                                      <Trash2 size={18} />
+                                    </button>
+                                  ) : (
+                                    <button disabled className="opacity-50 cursor-not-allowed">
+                                      <Trash2 size={18} />
+                                    </button>
+                                  )}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-         <ConfirmDeleteModal
-  open={confirmOpen}
-  message={t('deleteEntityConfirm', { entity: t('resource') })}
-  onConfirm={handleConfirmDelete}
-  onCancel={handleCancelDelete}
-  error={deleteError}
-/>
+            <ConfirmDeleteModal
+              open={confirmOpen}
+              message={t('deleteEntityConfirm', { entity: t('resource') })}
+              onConfirm={handleConfirmDelete}
+              onCancel={handleCancelDelete}
+              error={deleteError}
+            />
         </div>
     );
 };

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2 } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import axios from "axios";
+import api from "../../../api"; // ✅ Use api instance instead of axios
+import { getNafathIdFromJWT } from "../../../utils/jwt";
 
 const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => {
   const { language, t } = useLanguage();
@@ -88,12 +89,22 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
     };
   });
   const isNewUser = !user;
-  const API_BASE_URL = 'https://dev-api.wedo.solutions:3000/api';
 
   // If editing, fetch user data from API
   useEffect(() => {
+    // When editing, log the decoded nafathId (same as in Login.jsx)
+    if (user && user.id) {
+      const jwt = localStorage.getItem("userId");
+      if (jwt) {
+        const decodedNafathId = getNafathIdFromJWT(jwt);
+        console.log("✅ [UserModal] Decoded nafathId from JWT (edit):", decodedNafathId);
+      } else {
+        console.log("❌ [UserModal] No JWT found in localStorage.");
+      }
+    }
+
     if (!isNewUser && user?.nafath_id) {
-      axios.get(`${API_BASE_URL}/users`)
+      api.get(`/users`)
         .then(res => {
           const users = Array.isArray(res.data) ? res.data : [];
           const data = users.find(u => u.nafath_id === user.nafath_id);
@@ -190,7 +201,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
       
       if (numericValue.length >= 10) {
         try {
-          const res = await axios.get(`${API_BASE_URL}/users`);
+          const res = await api.get(`/users`);
           const users = Array.isArray(res.data) ? res.data : [];
           const userData = users.find(u => u.nafath_id === numericValue);
           if (userData) {
@@ -202,8 +213,6 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
               groups: Array.isArray(userData.groups) ? userData.groups : [],
               phone_number: userData.phone_number || '',
             }));
-          } else {
-            // Do nothing if not found
           }
         } catch (err) {
           setFetchError("Could not fetch users. Please try again later.");
@@ -247,77 +256,74 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validation: nafath_id must be exactly 10 digits
-    const nafathId = formData.nafath_id;
-    if (!nafathId || nafathId.length !== 10 || !/^[0-9]{10}$/.test(nafathId)) {
-      alert(t('invalidNafathId')); // Use translation for error message
-      return;
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  const nafathId = formData.nafath_id;
+  if (!nafathId || nafathId.length !== 10 || !/^[0-9]{10}$/.test(nafathId)) {
+    alert(t('invalidNafathId'));
+    return;
+  }
+
+  let payload;
+  let userId;
+  try {
+    if (isNewUser) {
+      // Creating a new user
+      payload = { nafath_id: formData.nafath_id };
+      const userRes = await api.post(`/users`, payload);
+      userId = userRes.data?.id;
+    } else {
+      // Editing an existing user
+      // ✅ Get JWT from localStorage
+      const jwt = localStorage.getItem("userId");
+      const decodedNafathId = getNafathIdFromJWT(jwt);
+      userId = formData.id || user?.id;
+      // ✅ Send decoded nafathId in body, JWT in header
+      await api.put(
+        `/users/${userId}`, // <-- Use UUID and decodedNafathId in URL
+        {}, // body can be empty or include other fields if needed
+        { headers: { "x-nafath-id": jwt } }
+      );
     }
 
-    let payload;
-    let userId;
-    try {
-      if (isNewUser) {
-        // Create new user with nafath_id
-        payload = { nafath_id: formData.nafath_id };
-        const userRes = await axios.post(`${API_BASE_URL}/users`, payload);
-        userId = userRes.data?.id;
-      } else {
-        // Update existing user
-        const requiredFields = [
-          'nafath_id', 'email', 'phone_number', 'first_name_ar', 'father_name_ar', 'grand_name_ar', 'family_name_ar',
-          'first_name_en', 'father_name_en', 'grand_name_en', 'family_name_en', 'gender', 'language', 'nationality',
-          'dob_g', 'dob_h', 'id_version', 'id_issue_date_g', 'id_issue_date_h', 'id_expiry_date_g', 'id_expiry_date_h',
-          'status'
-        ];
-        payload = {};
-        requiredFields.forEach(field => {
-          payload[field] = formData[field] !== undefined ? formData[field] : '';
-        });
-        const userRes = await axios.put(`${API_BASE_URL}/users/${formData.id}`, payload);
-        userId = userRes.data?.id || formData.id;
-      }
-
-      // Remove user from all groups (for both new and existing users)
-      if (userId && Array.isArray(groups)) {
-        for (const group of groups) {
-          try {
-            await axios.delete(`${API_BASE_URL}/associations/groups/${group.id}/users/${userId}`);
-          } catch (err) {
-            // Ignore errors for groups the user isn't in
-          }
+    // Remove user from all groups
+    if (userId && Array.isArray(groups)) {
+      for (const group of groups) {
+        try {
+          await api.delete(`/associations/groups/${group.id}/users/${userId}`);
+        } catch (err) {
+          // Ignore errors for groups the user isn't in
         }
       }
-
-      // Associate user with selected groups
-      if (userId && Array.isArray(formData.groupIds)) {
-        for (const groupId of formData.groupIds) {
-          try {
-            await axios.post(`${API_BASE_URL}/associations/groups/${groupId}/users`, { userId });
-          } catch (assocErr) {
-            console.error(`Error associating user with group ${groupId}:`, assocErr);
-            alert(t('errorAssociatingGroup', { groupId }));
-          }
-        }
-      }
-
-      // Call parent's onSave handler to refresh data
-      if (typeof onSave === 'function') {
-        onSave({ ...formData, id: userId });
-      }
-      onClose(); // Close modal on success
-    } catch (err) {
-      const errorMessage =
-        language === 'AR' && err?.response?.data?.errorMessage_AR
-          ? err.response.data.errorMessage_AR
-          : err?.response?.data?.errorMessage_EN || err?.message || t('apiErrorGeneric');
-      alert(t(`apiError.${errorMessage}`, errorMessage));
-      console.error('Error saving user:', err);
     }
-  };
+
+    // Associate user with selected groups
+    if (userId && Array.isArray(formData.groupIds)) {
+      for (const groupId of formData.groupIds) {
+        try {
+          await api.post(`/associations/groups/${groupId}/users`, { userId });
+        } catch (assocErr) {
+          console.error(`Error associating user with group ${groupId}:`, assocErr);
+          alert(t('errorAssociatingGroup', { groupId }));
+        }
+      }
+    }
+
+    if (typeof onSave === 'function') {
+      onSave({ ...formData, id: userId });
+    }
+    onClose();
+  } catch (err) {
+    const errorMessage =
+      language === 'AR' && err?.response?.data?.errorMessage_AR
+        ? err.response.data.errorMessage_AR
+        : err?.response?.data?.errorMessage_EN || err?.message || t('apiErrorGeneric');
+    alert(errorMessage);
+    console.error('Error saving user:', err);
+  }
+};
+
 
   const currentRoleNames = getRoleNamesForGroups(formData.groupIds || []);
   const currentResources = getResourcesForGroups(formData.groupIds || []);
@@ -491,23 +497,27 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
               </div>
             </div>
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">{t('groupsLabel')}</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {Array.isArray(groups) && groups.map(group => (
-                <label key={group.id} className={`flex items-center space-x-2 text-gray-700 ${language === 'ar' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                  <input
-                    type="checkbox"
-                    value={group.id}
-                    checked={Array.isArray(formData.groupIds) && formData.groupIds.includes(group.id)}
-                    onChange={handleGroupChange}
-                    className="form-checkbox text-teal-600 rounded-md transition-colors duration-200"
-                  />
-                  <span>{group.name}</span>
-                </label>
-              ))}
+          {/* Only show groups if user has group management rights */}
+          {can("Group Management", "write") && (
+            <div className="mb-4">
+              <label className="block text-gray-700 font-semibold mb-2">{t('groupsLabel')}</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(groups) && groups.map(group => (
+                  <label key={group.id} className={`flex items-center space-x-2 text-gray-700 ${language === 'ar' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      value={group.id}
+                      checked={Array.isArray(formData.groupIds) && formData.groupIds.includes(group.id)}
+                      onChange={handleGroupChange}
+                      className="form-checkbox text-teal-600 rounded-md transition-colors duration-200"
+                    />
+                    <span>{group.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+          
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2" htmlFor="role">{t('assignedRoles')}</label>
             <input
@@ -518,6 +528,7 @@ const UserModal = ({ groups, roles, resources, onClose, onSave, user, can }) => 
               className={`w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-600 focus:outline-none cursor-not-allowed ${language === 'ar' ? 'text-right' : ''}`}
             />
           </div>
+          
           <div className={`flex justify-end space-x-4 ${language === 'ar' ? 'flex-row-reverse space-x-reverse' : ''}`}>
             <button
               type="button"

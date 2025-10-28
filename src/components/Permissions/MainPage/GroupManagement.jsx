@@ -1,8 +1,8 @@
-
 import React, { useState } from "react";
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import useLanguage from "../../../hooks/useLanguage";
 import ConfirmDeleteModal from '../ConfirmDeleteModal';
+import api from "../../../api"; // ✅ Import the api instance
 
 const GroupManagement = ({ groups, roles, users, onEdit, onAdd, onDelete, can }) => {
   const { language, t } = useLanguage();
@@ -17,33 +17,38 @@ const GroupManagement = ({ groups, roles, users, onEdit, onAdd, onDelete, can })
     setConfirmOpen(true);
   };
 
-const handleConfirmDelete = async () => {
-  setDeleteError(""); // Clear previous error
-  if (!groupToDelete) return;
-  try {
-    await onDelete(groupToDelete.id);
-    setConfirmOpen(false);
-    setGroupToDelete(null);
-  } catch (err) {
-    // Prefer localized error message if available
-    const apiData = err?.response?.data || {};
-    let errorMessage = "";
+  // Use api instance for delete if onDelete is not provided
+  const handleConfirmDelete = async () => {
+    setDeleteError(""); // Clear previous error
+    if (!groupToDelete) return;
+    try {
+      if (onDelete) {
+        await onDelete(groupToDelete.id);
+      } else {
+        await api.delete(`/groups/${groupToDelete.id}`); // ✅ Use api instance here
+      }
+      setConfirmOpen(false);
+      setGroupToDelete(null);
+    } catch (err) {
+      // Prefer localized error message if available
+      const apiData = err?.response?.data || {};
+      let errorMessage = "";
 
-    if (language === "ar" && apiData.errorMessage_AR) {
-      errorMessage = apiData.errorMessage_AR;
-    } else if (language === "en" && apiData.errorMessage_EN) {
-      errorMessage = apiData.errorMessage_EN;
-    } else {
-      errorMessage =
-        apiData.error ||
-        apiData.message ||
-        err?.message ||
-        t('apiErrorGeneric');
+      if (language === "ar" && apiData.errorMessage_AR) {
+        errorMessage = apiData.errorMessage_AR;
+      } else if (language === "en" && apiData.errorMessage_EN) {
+        errorMessage = apiData.errorMessage_EN;
+      } else {
+        errorMessage =
+          apiData.error ||
+          apiData.message ||
+          err?.message ||
+          t('apiErrorGeneric');
+      }
+
+      setDeleteError(errorMessage);
     }
-
-    setDeleteError(errorMessage);
-  }
-};
+  };
 
   const handleCancelDelete = () => {
     setConfirmOpen(false);
@@ -60,18 +65,9 @@ const handleConfirmDelete = async () => {
     return roles.find(r => r.id === group.roleId)?.name || 'N/A';
   };
 
-  const getUserCount = (groupId) => {
-    if (!Array.isArray(users)) return 0;
-    return users.filter(u => {
-      if (Array.isArray(u.groups)) {
-        return u.groups.some(g => g.id === groupId || g === groupId);
-      }
-      if (Array.isArray(u.groupIds)) {
-        return u.groupIds.includes(groupId);
-      }
-      return false;
-    }).length;
-  };
+const getUserCount = (group) => {
+  return Array.isArray(group.users) ? group.users.length : 0;
+};
 
   return (
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -104,7 +100,7 @@ const handleConfirmDelete = async () => {
               <tr key={group.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{group.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getRoleName(group)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getUserCount(group.id)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getUserCount(group)}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   {can("Group Management", "write") ? (
                     <button onClick={() => onEdit(group)} className="text-teal-600 hover:text-teal-900 me-4">

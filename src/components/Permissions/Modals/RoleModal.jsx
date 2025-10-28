@@ -1,13 +1,14 @@
+// RoleModal.jsx
 import React, { useState, useEffect } from 'react';
 import { X, Eye, Pencil, Trash2 } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import axios from 'axios';
+import api from '../../../api'; // ✅ Use api instance instead of axios
 
 // Map permission IDs to icons
 const permissionIconsById = {
-  1: Eye,     
-  2: Pencil,  
-  3: Trash2,  
+  1: Eye,
+  2: Pencil,
+  3: Trash2,
 };
 
 // Map permission IDs to names
@@ -17,10 +18,10 @@ const permissionNamesById = {
   3: "delete",
 };
 
-const RoleModal = ({ resources, permissions, role, onClose, onSave, can }) => {
+const RoleModal = ({ resources, permissions, role, onClose, onSave, can, refreshPermissions }) => {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({ name: '', description: '' });
-  const [selected, setSelected] = useState({}); 
+  const [selected, setSelected] = useState({});
   const isNewRole = !role || !role.id;
 
   // Fetch role data from API
@@ -28,9 +29,7 @@ const RoleModal = ({ resources, permissions, role, onClose, onSave, can }) => {
     const fetchRole = async () => {
       if (role) {
         try {
-          const res = await axios.get(
-            `https://dev-api.wedo.solutions:3000/api/roles/${role.id}`
-          );
+          const res = await api.get(`/roles/${role.id}`);
           const roleData = res.data;
           setFormData({
             name: roleData.name || '',
@@ -59,7 +58,7 @@ const RoleModal = ({ resources, permissions, role, onClose, onSave, can }) => {
     fetchRole();
   }, [role, resources]);
 
-  // Toggle permission (only updates state now)
+  // Toggle permission
   const handleToggle = (resource, permission) => {
     const resourceName = resource.name;
     const permissionName = permission.name;
@@ -88,18 +87,12 @@ const RoleModal = ({ resources, permissions, role, onClose, onSave, can }) => {
   }, {});
 
   // Save role details and permissions
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    let res;
-    if (role && role.id) {
-      // Update role details
-      res = await axios.put(`https://dev-api.wedo.solutions:3000/api/roles/${role.id}`, {
-        name: formData.name,
-        description: formData.description,
-      });
-
-      // Send updated permissions per resource
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      let res;
+      // Prepare updated permissions for localStorage
+      const updatedPermissions = {};
       for (const resource of resources) {
         const perms = selected[resource.name] || [];
         const permIds = perms
@@ -108,53 +101,80 @@ const handleSubmit = async (e) => {
             return permObj?.id;
           })
           .filter(Boolean);
-
-        await axios.post(
-          `https://dev-api.wedo.solutions:3000/api/associations/roles/${role.id}/permissions`,
-          {
-            resourceId: String(resource.id),          // ✅ required as string
-            permissionIds: permIds.map(String),       // ✅ array of strings
-          }
-        );
-  }
-  } else {
-    // Create new role
-    res = await axios.post(`https://dev-api.wedo.solutions:3000/api/roles`, {
-      name: formData.name,
-        description: formData.description,
-      });
-      const newRoleId = res.data.id;
-
-      for (const resource of resources) {
-        const perms = selected[resource.name] || [];
-        const permIds = perms
-          .map(permName => {
-            const permObj = permissions.find(p => p.name === permName);
-            return permObj?.id;
-          })
-          .filter(Boolean);
-
         if (permIds.length > 0) {
-          await axios.post(
-            `https://dev-api.wedo.solutions:3000/api/associations/roles/${newRoleId}/permissions`,
+          updatedPermissions[resource.id] = permIds.map(String);
+        }
+      }
+
+      if (role && role.id) {
+        // Update role details
+        res = await api.put(`/roles/${role.id}`, {
+          name: formData.name,
+          description: formData.description,
+        });
+
+        // Send updated permissions per resource
+        for (const resource of resources) {
+          const perms = selected[resource.name] || [];
+          const permIds = perms
+            .map(permName => {
+              const permObj = permissions.find(p => p.name === permName);
+              return permObj?.id;
+            })
+            .filter(Boolean);
+
+          await api.post(
+            `/associations/roles/${role.id}/permissions`,
             {
-              resourceId: String(resource.id),        // ✅ required as string
-              permissionIds: permIds.map(String),     // ✅ array of strings
+              resourceId: String(resource.id),
+              permissionIds: permIds.map(String),
             }
           );
         }
+      } else {
+        // Create new role
+        res = await api.post(`/roles`, {
+          name: formData.name,
+          description: formData.description,
+        });
+        const newRoleId = res.data.id;
+
+        for (const resource of resources) {
+          const perms = selected[resource.name] || [];
+          const permIds = perms
+            .map(permName => {
+              const permObj = permissions.find(p => p.name === permName);
+              return permObj?.id;
+            })
+            .filter(Boolean);
+
+          if (permIds.length > 0) {
+            await api.post(
+              `/associations/roles/${newRoleId}/permissions`,
+              {
+                resourceId: String(resource.id),
+                permissionIds: permIds.map(String),
+              }
+            );
+          }
+        }
       }
+
+      // Update localStorage with new permissions
+      localStorage.setItem('userPermissions', JSON.stringify(updatedPermissions));
+
+      // Trigger Casbin refresh
+      if (typeof refreshPermissions === 'function') {
+        await refreshPermissions();
+      }
+
+      onSave();
+      onClose();
+    } catch (err) {
+      console.error("Save role failed:", err.response?.data || err.message);
+      alert('Error saving role: ' + (err.response?.data?.message || err.message));
     }
-
-    onSave();
-    // onClose();
-  } catch (err) {
-    console.error("Save role failed:", err.response?.data || err.message);
-    alert('Error saving role: ' + (err.response?.data?.message || err.message));
-  }
-};
-
-
+  };
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
@@ -180,6 +200,7 @@ const handleSubmit = async (e) => {
             <input
               type="text"
               id="name"
+              placeholder={t('roleNamePlaceholder') || 'Enter role name'}
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg"
@@ -195,6 +216,7 @@ const handleSubmit = async (e) => {
             <input
               type="text"
               id="description"
+              placeholder={t('descriptionPlaceholder') || 'Enter role description'}
               value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg"
@@ -213,10 +235,7 @@ const handleSubmit = async (e) => {
                       key={resource.id}
                       className="flex items-center justify-between gap-2 mb-2 px-4 py-2 border rounded-lg hover:shadow-sm transition-shadow duration-200 bg-white"
                     >
-                      {/* Resource Name Left */}
                       <span className="text-gray-700">{resource.name}</span>
-
-                      {/* Permissions Right */}
                       <div className="flex items-center gap-2">
                         {permissions.map(permission => {
                           const Icon = permissionIconsById[permission.id] || Eye;
@@ -255,34 +274,25 @@ const handleSubmit = async (e) => {
             >
               {t('cancel')}
             </button>
-            {/* <button
+            <button
               type="submit"
-              className="px-6 py-2 bg-[#166a45] text-white font-semibold rounded-full shadow-md hover:bg-[#104631] transition-colors duration-200"
+              disabled={
+                isNewRole
+                  ? !can("Role Management", "write")
+                  : !can("Role Management", "write")
+              }
+              className={`px-6 py-2 rounded-full shadow-md font-semibold transition-colors duration-200 ${
+                isNewRole
+                  ? can("Role Management", "write")
+                    ? "bg-[#166a45] text-white hover:bg-[#104631]"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : can("Role Management", "write")
+                    ? "bg-[#166a45] text-white hover:bg-[#104631]"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
             >
               {t('save')}
-            </button> */}
-
-            <button
-  type="submit"
-  disabled={
-    isNewRole
-      ? !can("Role Management", "write")
-      : !can("Role Management", "write")
-  }
-  className={`px-6 py-2 rounded-full shadow-md font-semibold transition-colors duration-200 ${
-    isNewRole
-      ? can("Role Management", "write")
-        ? "bg-[#166a45] text-white hover:bg-[#104631]"
-        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-      : can("Role Management", "write")
-        ? "bg-[#166a45] text-white hover:bg-[#104631]"
-        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-  }`}
->
-  {t('save')}
-</button>
-
-
+            </button>
           </div>
         </form>
       </div>
