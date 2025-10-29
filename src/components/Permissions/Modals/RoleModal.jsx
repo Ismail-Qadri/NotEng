@@ -1,8 +1,8 @@
-// RoleModal.jsx
+
 import React, { useState, useEffect } from 'react';
 import { X, Eye, Pencil, Trash2 } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import api from '../../../api'; // ✅ Use api instance instead of axios
+import api from '../../../api';
 
 // Map permission IDs to icons
 const permissionIconsById = {
@@ -91,7 +91,6 @@ const RoleModal = ({ resources, permissions, role, onClose, onSave, can, refresh
     e.preventDefault();
     try {
       let res;
-      // Prepare updated permissions for localStorage
       const updatedPermissions = {};
       for (const resource of resources) {
         const perms = selected[resource.name] || [];

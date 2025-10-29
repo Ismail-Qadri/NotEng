@@ -39,10 +39,10 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
   // Fetch all static data once
   useEffect(() => {
     Promise.all([
-      api.get("/users"),
-      api.get("/groups"),
-      api.get("/usecases"),
-      api.get("/channels"),
+      api.get("/users").catch(() => ({ data: [] })),
+      api.get("/groups").catch(() => ({ data: [] })),
+      api.get("/usecases").catch(() => ({ data: [] })),
+      api.get("/channels").catch(() => ({ data: [] })),
       api.get("/notification-templates").catch(() => ({ data: [] })),
     ])
       .then(([usersRes, groupsRes, useCasesRes, channelsRes, templatesRes]) => {
@@ -53,7 +53,11 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
         setTemplates(Array.isArray(templatesRes.data) ? templatesRes.data : []);
         setApiLoaded(true);
       })
-      .catch((err) => console.error("Failed to fetch initial data", err));
+      .catch((err) => {
+        if (import.meta.env.DEV)
+          console.error("Failed to fetch initial data", err);
+        setApiLoaded(true); // Still set to true so modal can open
+      });
   }, []);
 
   // Fetch metrics when use case changes (but not during edit prefill)
@@ -100,25 +104,20 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
   // Consolidated prefill useEffect
   useEffect(() => {
     let cancelled = false;
-
     const prefillRuleData = async () => {
       if (!rule || !apiLoaded) return;
-
       try {
         setRuleName(rule.label || "");
         setIsActive(rule.active ?? true);
         setOperator(rule.operator || ">");
         setFrequency(rule.frequency || "");
         setSelectedTemplateId(rule.notificationTemplateId || null);
-
         const useCaseValue = rule.metric?.useCaseId;
         if (useCaseValue) setSelectedUseCaseId(Number(useCaseValue));
-
         if (rule.metricId) {
           setSelectedMetricId(rule.metricId);
           if (rule.metric) setMetrics([rule.metric]);
         }
-
         if (rule.dimensionId && rule.dimension) {
           setDimension({
             id: rule.dimension.id,
@@ -135,14 +134,12 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
             setDimensionValues([]);
           }
         }
-
         if (rule.dimensionValue) {
           setDimensionValue(rule.dimensionValue);
           setDefaultThreshold("");
         } else {
           setDefaultThreshold(String(rule.thresholdValue) || "");
         }
-
         if (
           rule.recipients &&
           rule.recipients.length > 0 &&
@@ -156,7 +153,6 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
               (ch) => ch.id === recipient.channelId
             );
             const channelName = channel ? channel.label || channel.name : "";
-
             if (recipient.userId) {
               const user = availableUsers.find(
                 (u) => String(u.id) === String(recipient.userId)
@@ -219,16 +215,13 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
               }
             }
           });
-
           setRecipients(prefilledRecipients);
         }
       } catch (error) {
         // ignore
       }
     };
-
     prefillRuleData();
-
     return () => {
       cancelled = true;
     };
@@ -467,7 +460,7 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
         notificationTemplateId: Number(selectedTemplateId),
         dimensionId: dimension?.id ? Number(dimension.id) : null,
         dimensionValue: dimensionValue || null,
-        active: Boolean(isActive)
+        active: Boolean(isActive),
       };
 
       onSave(ruleData, rule?.id);

@@ -75,7 +75,6 @@ const NotificationsDashboard = ({ can }) => {
     }
   }, [visibleTabs, activeTab]);
 
-
   if (visibleTabs.length === 0) {
     return (
       <>

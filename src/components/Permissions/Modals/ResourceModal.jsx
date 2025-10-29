@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import api from '../../../api'; // ✅ Use api instance instead of axios
+import api from '../../../api'; 
 
 const ResourceModal = ({ onClose, onSave, resource, can }) => {
   const { t } = useLanguage();

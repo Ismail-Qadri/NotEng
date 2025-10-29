@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import TemplatesModal from "../NotificationModals/TemplatesModal";
 import { Plus, Edit, Trash2, FileText } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
-import api from "../../../api"; // ✅ Use api instance instead of axios
+import api from "../../../api"; 
 
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
@@ -26,25 +26,34 @@ const Template = ({ can }) => {
   const safeCan = typeof can === "function" ? can : () => false;
 
   const [templates, setTemplates] = useState([]);
+  const [channels, setChannels] = useState([]);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const { t } = useLanguage();
 
   useEffect(() => {
-    // ✅ Use api instance with relative URL
-    api.get("/notification-templates")
-      .then(res => {
-        setTemplates(Array.isArray(res.data) ? res.data : []);
-      })
-      .catch(err => {
+    const fetchData = async () => {
+      try {
+        const [templatesRes, channelsRes] = await Promise.all([
+          api.get("/notification-templates").catch(() => ({ data: [] })),
+          api.get("/channels").catch(() => ({ data: [] }))
+        ]);
+        
+        setTemplates(Array.isArray(templatesRes.data) ? templatesRes.data : []);
+        setChannels(Array.isArray(channelsRes.data) ? channelsRes.data : []);
+      } catch (err) {
         console.error("Failed to fetch templates", err);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
+  
 
   const handleSaveTemplate = async (newTemplate) => {
     try {
       if (editingTemplate) {
-        // ✅ Use api instance for PUT
+        // Use api instance for PUT
         const response = await api.put(
           `/notification-templates/${editingTemplate.id}`,
           newTemplate
@@ -55,7 +64,7 @@ const Template = ({ can }) => {
         );
         setEditingTemplate(null);
       } else {
-        // ✅ Use api instance for POST
+        // Use api instance for POST
         const response = await api.post(
           "/notification-templates",
           newTemplate
@@ -65,7 +74,7 @@ const Template = ({ can }) => {
       }
       setIsFormVisible(false);
       
-      // ✅ Refresh templates list
+      // Refresh templates list
       const res = await api.get("/notification-templates");
       setTemplates(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
@@ -82,13 +91,19 @@ const Template = ({ can }) => {
 
   const handleDeleteTemplate = async (templateId) => {
     try {
-      // ✅ Use api instance for DELETE
+      // Use api instance for DELETE
       await api.delete(`/notification-templates/${templateId}`);
       setTemplates(templates.filter((tpl) => tpl.id !== templateId));
     } catch (err) {
       console.error("Failed to delete template", err);
       alert("Failed to delete template. Please try again.");
     }
+  };
+
+  // Add helper function
+  const getChannelName = (channelId) => {
+    const channel = channels.find(ch => ch.id === channelId);
+    return channel ? (channel.label || channel.name) : channelId;
   };
 
   return (
@@ -113,18 +128,10 @@ const Template = ({ can }) => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("subject")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("channel")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("body")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("actions")}
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("subject")}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("channel")}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("body")}</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t("actions")}</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -190,5 +197,4 @@ const Template = ({ can }) => {
 };
 
 export default Template;
-
 

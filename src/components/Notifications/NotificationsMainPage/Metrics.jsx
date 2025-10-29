@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import MetricsModal from "../NotificationModals/MetricsModal";
 import { Plus, Edit, Trash2, BarChart2 } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
-import api from "../../../api"; // ✅ Use api instance instead of axios
+import api from "../../../api"; 
 
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
@@ -33,46 +33,49 @@ const Metrics = ({ can }) => {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // ✅ Use api instance with relative URLs
-    api.get("/metrics")
-      .then(res => {
+    //  Use api instance with relative URLs
+    api
+      .get("/metrics")
+      .then((res) => {
         setMetrics(res.data);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("Failed to fetch metrics", err);
       });
-    
-    api.get("/usecases")
-      .then(res => {
+
+    api
+      .get("/usecases")
+      .then((res) => {
         setUseCases(res.data);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("Failed to fetch use cases", err);
       });
-    
-    api.get("/dimensions")
-      .then(res => {
+
+    api
+      .get("/dimensions")
+      .then((res) => {
         setDimensions(res.data);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("Failed to fetch dimensions", err);
       });
   }, []);
 
   const getUseCaseLabel = (id) => {
-    const uc = useCases.find(u => u.id === id);
+    const uc = useCases.find((u) => u.id === id);
     return uc ? uc.label : id;
   };
 
   const getDimensionLabel = (id) => {
-    const d = dimensions.find(dim => dim.id === id);
+    const d = dimensions.find((dim) => dim.id === id);
     return d ? d.label : id;
   };
 
   const handleSaveMetric = async (newMetric) => {
     try {
       if (editingMetric) {
-        // ✅ Use api instance for PUT
+        //  Use api instance for PUT
         const response = await api.put(
           `/metrics/${editingMetric.id}`,
           newMetric
@@ -83,14 +86,14 @@ const Metrics = ({ can }) => {
         );
         setEditingMetric(null);
       } else {
-        // ✅ Use api instance for POST
+        //  Use api instance for POST
         const response = await api.post("/metrics", newMetric);
         const createdMetric = response.data;
         setMetrics((prev) => [...prev, createdMetric]);
       }
       setIsFormVisible(false);
-      
-      // ✅ Refresh metrics list
+
+      //  Refresh metrics list
       const res = await api.get("/metrics");
       setMetrics(res.data);
     } catch (err) {
@@ -107,7 +110,7 @@ const Metrics = ({ can }) => {
 
   const handleDeleteMetric = async (metricId) => {
     try {
-      // ✅ Use api instance for DELETE
+      //  Use api instance for DELETE
       await api.delete(`/metrics/${metricId}`);
       setMetrics(metrics.filter((m) => m.id !== metricId));
     } catch (err) {
@@ -192,11 +195,14 @@ const Metrics = ({ can }) => {
                       <Edit size={18} />
                     </button>
                   ) : (
-                    <button disabled className="opacity-50 cursor-not-allowed me-4">
+                    <button
+                      disabled
+                      className="opacity-50 cursor-not-allowed me-4"
+                    >
                       <Edit size={18} />
                     </button>
                   )}
-                  
+
                   {safeCan("Metrics Management", "delete") ? (
                     <button
                       onClick={() => handleDeleteMetric(m.id)}
@@ -227,5 +233,3 @@ const Metrics = ({ can }) => {
 };
 
 export default Metrics;
-
-

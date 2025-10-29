@@ -2,7 +2,7 @@ import React , { useState} from "react";
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
 import ConfirmDeleteModal from '../ConfirmDeleteModal';
-import api from "../../../api"; // ✅ Import the api instance
+import api from "../../../api";
 
 const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) => {
     const { language, t } = useLanguage();
@@ -25,7 +25,7 @@ const ResourceManagement = ({ resources = [], onEdit, onAdd, onDelete, can }) =>
         if (onDelete) {
           await onDelete(resourceToDelete.id);
         } else {
-          await api.delete(`/resources/${resourceToDelete.id}`); // ✅ Use api instance here
+          await api.delete(`/resources/${resourceToDelete.id}`); 
         }
         setConfirmOpen(false);
         setResourceToDelete(null);

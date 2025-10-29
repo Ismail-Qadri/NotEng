@@ -2,30 +2,30 @@ import React, { useState } from "react";
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import useLanguage from "../../../hooks/useLanguage";
 import ConfirmDeleteModal from '../ConfirmDeleteModal';
-import api from "../../../api"; // ✅ Import the api instance
+import api from "../../../api"; 
 
 const GroupManagement = ({ groups, roles, users, onEdit, onAdd, onDelete, can }) => {
   const { language, t } = useLanguage();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState(null);
-  const [deleteError, setDeleteError] = useState(""); // 1. Error state
+  const [deleteError, setDeleteError] = useState(""); 
 
   const handleDeleteClick = (group) => {
     setGroupToDelete(group);
-    setDeleteError(""); // Clear previous error
+    setDeleteError(""); 
     setConfirmOpen(true);
   };
 
   // Use api instance for delete if onDelete is not provided
   const handleConfirmDelete = async () => {
-    setDeleteError(""); // Clear previous error
+    setDeleteError(""); 
     if (!groupToDelete) return;
     try {
       if (onDelete) {
         await onDelete(groupToDelete.id);
       } else {
-        await api.delete(`/groups/${groupToDelete.id}`); // ✅ Use api instance here
+        await api.delete(`/groups/${groupToDelete.id}`); 
       }
       setConfirmOpen(false);
       setGroupToDelete(null);
@@ -53,7 +53,7 @@ const GroupManagement = ({ groups, roles, users, onEdit, onAdd, onDelete, can })
   const handleCancelDelete = () => {
     setConfirmOpen(false);
     setGroupToDelete(null);
-    setDeleteError(""); // Clear error on cancel
+    setDeleteError("");
   };
 
   // Get role name from group.roles array if present, else fallback to roleId lookup

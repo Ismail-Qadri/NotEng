@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
 import ConfirmDeleteModal from '../ConfirmDeleteModal';
-import api from "../../../api"; // ✅ Import the api instance
+import api from "../../../api"; 
 
 const permissionIcons = {
   read: Eye,
@@ -47,7 +47,7 @@ const RoleManagement = ({
       if (onDelete) {
         await onDelete(roleToDelete.id);
       } else {
-        await api.delete(`/roles/${roleToDelete.id}`); // ✅ Use api instance here
+        await api.delete(`/roles/${roleToDelete.id}`); 
       }
       setConfirmOpen(false);
       setRoleToDelete(null);

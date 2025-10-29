@@ -16,60 +16,68 @@ const CasbinProvider = ({ children }) => {
   useEffect(() => {
     const fetchDataAndBuildPolicies = async () => {
       setIsReady(false);
-      console.log("🔄 CasbinProvider: Starting full data fetch and policy build...");
 
       try {
         const userId = localStorage.getItem("userId");
-        const userPerms = JSON.parse(localStorage.getItem("userPermissions") || "{}");
+        const userPerms = JSON.parse(
+          localStorage.getItem("userPermissions") || "{}"
+        );
         const allowedResourceIds = Object.keys(userPerms);
 
         if (!userId || allowedResourceIds.length === 0) {
-          console.warn("⚠️ No userId or permissions in localStorage. Aborting.");
+          console.warn(
+            "⚠️ No userId or permissions in localStorage. Aborting."
+          );
           setCasbinPolicies([]);
           setContextData({ resources: [], permissions: [], roles: [] });
-          setIsReady(true); // Ready, but with no permissions
+          setIsReady(true);
           return;
         }
 
         // Fetch all data in parallel
-        const [resourcesRes, permissionsRes, rolesRes] = await Promise.allSettled([
-          api.get(`/resources`),
-          api.get(`/permissions`),
-          api.get(`/roles`),
-        ]);
+        const [resourcesRes, permissionsRes, rolesRes] =
+          await Promise.allSettled([
+            api.get(`/resources`),
+            api.get(`/permissions`),
+            api.get(`/roles`),
+          ]);
 
-        const resourcesData = resourcesRes.status === 'fulfilled' ? resourcesRes.value.data : [];
-        const allPermissionsData = permissionsRes.status === 'fulfilled' ? permissionsRes.value.data : [];
-        const rolesData = rolesRes.status === 'fulfilled' ? rolesRes.value.data : [];
+        const resourcesData =
+          resourcesRes.status === "fulfilled" ? resourcesRes.value.data : [];
+        const allPermissionsData =
+          permissionsRes.status === "fulfilled"
+            ? permissionsRes.value.data
+            : [];
+        const rolesData =
+          rolesRes.status === "fulfilled" ? rolesRes.value.data : [];
 
         // Build policies directly from fetched data
         const policyRules = [];
         Object.entries(userPerms).forEach(([resourceId, permIds]) => {
-          const resource = resourcesData.find((r) => String(r.id) === String(resourceId));
+          const resource = resourcesData.find(
+            (r) => String(r.id) === String(resourceId)
+          );
           if (!resource) return;
-          
+
           permIds.forEach((permId) => {
-            const perm = allPermissionsData.find((p) => String(p.id) === String(permId));
+            const perm = allPermissionsData.find(
+              (p) => String(p.id) === String(permId)
+            );
             if (perm) {
               policyRules.push([userId, resource.name, perm.name]);
             }
           });
         });
 
-        console.log("✅ Policies built:", policyRules);
         setCasbinPolicies(policyRules);
-        
+
         // Set all context data at once
         setContextData({
           resources: resourcesData,
           permissions: allPermissionsData,
           roles: rolesData,
         });
-
-        // Mark as ready ONLY after everything is done
         setIsReady(true);
-        console.log("✅ CasbinProvider is now ready!");
-
       } catch (error) {
         if (isDev) console.error("❌ Error in CasbinProvider:", error);
         setCasbinPolicies([]);
@@ -85,35 +93,37 @@ const CasbinProvider = ({ children }) => {
     setRefreshCounter((prev) => prev + 1);
   }, []);
 
-  const can = useCallback((resourceName, action) => {
-    const userId = localStorage.getItem("userId");
-    if (!isReady || !userId || !resourceName || !action) {
-      return false;
-    }
-    
-    try {
-      const hasPermission = casbinPolicies.some(
-        (policy) =>
-          policy[0] === userId &&
-          policy[1] === resourceName &&
-          policy[2] === action
-      );
-      // console.log(`[can] Check: ${resourceName}, ${action} -> ${hasPermission}`);
-      return hasPermission;
-    } catch (error) {
-      if (isDev) console.error("❌ Error in 'can' function:", error);
-      return false;
-    }
-  }, [isReady, casbinPolicies]);
+  const can = useCallback(
+    (resourceName, action) => {
+      const userId = localStorage.getItem("userId");
+      if (!isReady || !userId || !resourceName || !action) {
+        return false;
+      }
+
+      try {
+        const hasPermission = casbinPolicies.some(
+          (policy) =>
+            policy[0] === userId &&
+            policy[1] === resourceName &&
+            policy[2] === action
+        );
+        return hasPermission;
+      } catch (error) {
+        if (isDev) console.error("❌ Error in 'can' function:", error);
+        return false;
+      }
+    },
+    [isReady, casbinPolicies]
+  );
 
   const contextValue = useMemo(
-    () => ({ 
-      can, 
+    () => ({
+      can,
       isReady,
-      resources: contextData.resources, 
-      permissions: contextData.permissions, 
-      roles: contextData.roles, 
-      refreshPermissions 
+      resources: contextData.resources,
+      permissions: contextData.permissions,
+      roles: contextData.roles,
+      refreshPermissions,
     }),
     [can, isReady, contextData, refreshPermissions]
   );

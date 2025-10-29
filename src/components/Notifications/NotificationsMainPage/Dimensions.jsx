@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import DimensionsModal from "../NotificationModals/DimensionsModal";
 import { Plus, Edit, Trash2, LayoutGrid } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
-import api from "../../../api"; // ✅ Use api instance instead of axios
+import api from "../../../api"; 
 
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
@@ -31,7 +31,7 @@ const Dimensions = ({ can }) => {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // ✅ Use api instance with relative URL
+    //  Use api instance with relative URL
     api.get("/dimensions")
       .then(res => {
         setDimensions(res.data);
@@ -44,7 +44,7 @@ const Dimensions = ({ can }) => {
   const handleSaveDimension = async (newDimension) => {
     try {
       if (editingDimension) {
-        // ✅ Use api instance for PUT
+        //  Use api instance for PUT
         const response = await api.put(
           `/dimensions/${editingDimension.id}`,
           newDimension
@@ -55,14 +55,14 @@ const Dimensions = ({ can }) => {
         );
         setEditingDimension(null);
       } else {
-        // ✅ Use api instance for POST
+        //  Use api instance for POST
         const response = await api.post("/dimensions", newDimension);
         const createdDimension = response.data;
         setDimensions((prev) => [...prev, createdDimension]);
       }
       setIsFormVisible(false);
       
-      // ✅ Refresh dimensions list
+      //  Refresh dimensions list
       const res = await api.get("/dimensions");
       setDimensions(res.data);
     } catch (err) {
@@ -79,7 +79,7 @@ const Dimensions = ({ can }) => {
 
   const handleDeleteDimension = async (dimensionId) => {
     try {
-      // ✅ Use api instance for DELETE
+      //  Use api instance for DELETE
       await api.delete(`/dimensions/${dimensionId}`);
       setDimensions(dimensions.filter((d) => d.id !== dimensionId));
     } catch (err) {

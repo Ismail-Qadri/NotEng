@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import useLanguage from '../../../hooks/useLanguage';
-import api from '../../../api'; // ✅ Use api instance instead of axios
+import api from '../../../api'; 
 
 const GroupModal = ({ roles, onClose, onSave, group, can }) => {
   const { language, t } = useLanguage();
@@ -93,7 +93,6 @@ const GroupModal = ({ roles, onClose, onSave, group, can }) => {
       }
 
       onSave(res.data);
-      // onClose();
     } catch (err) {
       console.error('Error saving group:', err.response || err);
       alert('Error saving group: ' + (err.response?.data?.message || err.message));

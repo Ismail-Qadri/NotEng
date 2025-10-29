@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import RuleModal from "../NotificationModals/RuleModal";
 import { Plus, Edit, Trash2, ListChecks } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
-import api from "../../../api"; // ✅ Use api instance instead of axios
+import api from "../../../api";
 
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
@@ -31,29 +31,29 @@ const Rules = ({ can }) => {
   const [selectedUseCaseId, setSelectedUseCaseId] = useState(null);
 
   useEffect(() => {
-    // ✅ Use api instance with relative URLs
-    api.get("/rules").then(res => {
-      setRules(res.data);
-    }).catch(err => console.error("Failed to fetch rules", err));
-    
-    api.get("/usecases").then(res => {
-      setUseCases(res.data);
-    }).catch(err => console.error("Failed to fetch use cases", err));
-  }, []);
+    const fetchData = async () => {
+      try {
+        const [rulesRes, useCasesRes, metricsRes] = await Promise.all([
+          api.get("/rules").catch(() => ({ data: [] })),
+          api.get("/usecases").catch(() => ({ data: [] })),
+          api.get("/metrics").catch(() => ({ data: [] })),
+        ]);
 
-  useEffect(() => {
-    if (selectedUseCaseId) {
-      // ✅ Use api instance
-      api.get(`/metrics/${selectedUseCaseId}`)
-        .then(res => setMetrics(res.data))
-        .catch(err => console.error("Failed to fetch metrics", err));
-    }
-  }, [selectedUseCaseId]);
+        setRules(Array.isArray(rulesRes.data) ? rulesRes.data : []);
+        setUseCases(Array.isArray(useCasesRes.data) ? useCasesRes.data : []);
+        setMetrics(Array.isArray(metricsRes.data) ? metricsRes.data : []);
+      } catch (err) {
+        console.error("Failed to fetch data", err);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleSaveRule = async (newRule) => {
     try {
       if (editingRule) {
-        // ✅ Use api instance for PUT
+        // Use api instance for PUT
         const response = await api.put(`/rules/${editingRule.id}`, newRule);
         const updatedRule = response.data;
         setRules((prev) =>
@@ -61,14 +61,14 @@ const Rules = ({ can }) => {
         );
         setEditingRule(null);
       } else {
-        // ✅ Use api instance for POST
+        // Use api instance for POST
         const response = await api.post("/rules", newRule);
         const createdRule = response.data;
         setRules((prev) => [...prev, createdRule]);
       }
       setIsFormVisible(false);
-      
-      // ✅ Refresh rules list
+
+      // Refresh rules list
       const res = await api.get("/rules");
       setRules(res.data);
     } catch (err) {
@@ -85,7 +85,7 @@ const Rules = ({ can }) => {
 
   const handleDeleteRule = async (ruleId) => {
     try {
-      // ✅ Use api instance for DELETE
+      // Use api instance for DELETE
       await api.delete(`/rules/${ruleId}`);
       setRules(rules.filter((rule) => rule.id !== ruleId));
     } catch (err) {
@@ -185,7 +185,10 @@ const Rules = ({ can }) => {
                       <Edit size={18} />
                     </button>
                   ) : (
-                    <button disabled className="opacity-50 cursor-not-allowed me-4">
+                    <button
+                      disabled
+                      className="opacity-50 cursor-not-allowed me-4"
+                    >
                       <Edit size={18} />
                     </button>
                   )}
@@ -220,5 +223,3 @@ const Rules = ({ can }) => {
 };
 
 export default Rules;
-
-

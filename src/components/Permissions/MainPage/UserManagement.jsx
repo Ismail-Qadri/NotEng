@@ -24,7 +24,6 @@ useEffect(() => {
     try {
       const res = await api.get("/groups");
       setGroups(res.data || []);
-      if (isDev) console.log("Fetched groups with roles:", res.data);
     } catch (err) {
       if (isDev) console.error("Error fetching groups:", err);
       setGroups([]);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import UseCaseModal from "../NotificationModals/UseCaseModal";
 import { Plus, Edit, Trash2, LayoutGrid } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
-import api from "../../../api"; // ✅ Use api instance instead of axios
+import api from "../../../api";
 
 const Modal = ({ open, onClose, children }) => {
   if (!open) return null;
@@ -31,7 +31,7 @@ const UseCases = ({ can }) => {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // ✅ Use api instance with relative URL
+    // Use api instance with relative URL
     api.get("/usecases")
       .then(res => {
         setUseCases(res.data);
@@ -44,7 +44,7 @@ const UseCases = ({ can }) => {
   const handleSaveUseCase = async (newUseCase) => {
     try {
       if (editingUseCase) {
-        // ✅ Use api instance for PUT
+        // Use api instance for PUT
         const response = await api.put(
           `/usecases/${editingUseCase.id}`,
           newUseCase
@@ -55,14 +55,14 @@ const UseCases = ({ can }) => {
         );
         setEditingUseCase(null);
       } else {
-        // ✅ Use api instance for POST
+        // Use api instance for POST
         const response = await api.post("/usecases", newUseCase);
         const createdUseCase = response.data;
         setUseCases((prev) => [...prev, createdUseCase]);
       }
       setIsFormVisible(false);
       
-      // ✅ Refresh use cases list
+      // Refresh use cases list
       const res = await api.get("/usecases");
       setUseCases(res.data);
     } catch (err) {
@@ -79,7 +79,7 @@ const UseCases = ({ can }) => {
 
   const handleDeleteUseCase = async (useCaseId) => {
     try {
-      // ✅ Use api instance for DELETE
+      // Use api instance for DELETE
       await api.delete(`/usecases/${useCaseId}`);
       setUseCases(useCases.filter((uc) => uc.id !== useCaseId));
     } catch (err) {

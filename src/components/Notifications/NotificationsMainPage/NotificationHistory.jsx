@@ -36,9 +36,9 @@ const NotificationHistory = ({ can }) => {
 
   // Fetch dropdown data on mount
   useEffect(() => {
-    api.get("/users").then(res => setUsers(res.data || []));
-    api.get("/rules").then(res => setRules(res.data || []));
-    api.get("/channels").then(res => setChannels(res.data || []));
+    api.get("/users").then((res) => setUsers(res.data || []));
+    api.get("/rules").then((res) => setRules(res.data || []));
+    api.get("/channels").then((res) => setChannels(res.data || []));
   }, []);
 
   // Fetch ALL history data (all pages)
@@ -47,7 +47,7 @@ const NotificationHistory = ({ can }) => {
       setLoading(true);
       let allData = [];
       let totalPages = 1;
-      const backendPageSize = 1000; // Use backend's max allowed page size
+      const backendPageSize = 1000; 
 
       try {
         // Fetch first page to get total count
@@ -80,7 +80,14 @@ const NotificationHistory = ({ can }) => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [filterUser, filterRule, filterStatus, filterChannel, filterDateFrom, filterDateTo]);
+  }, [
+    filterUser,
+    filterRule,
+    filterStatus,
+    filterChannel,
+    filterDateFrom,
+    filterDateTo,
+  ]);
 
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -93,30 +100,44 @@ const NotificationHistory = ({ can }) => {
 
   // Filter history
   const filteredHistory = history
-    .filter(item =>
-      !filterRule || String(item.rule?.id || item.rule) === String(filterRule)
+    .filter(
+      (item) =>
+        !filterRule || String(item.rule?.id || item.rule) === String(filterRule)
     )
-    .filter(item =>
-      !filterUser || String(item.user?.id || item.user) === String(filterUser)
+    .filter(
+      (item) =>
+        !filterUser || String(item.user?.id || item.user) === String(filterUser)
     )
-    .filter(item =>
-      !filterChannel || String(item.channel?.id || item.channel) === String(filterChannel)
+    .filter(
+      (item) =>
+        !filterChannel ||
+        String(item.channel?.id || item.channel) === String(filterChannel)
     )
-    .filter(item =>
-      !filterStatus || (item.status || (item.httpStatus === 200 ? "success" : "failure")).toLowerCase() === filterStatus.toLowerCase()
+    .filter(
+      (item) =>
+        !filterStatus ||
+        (
+          item.status || (item.httpStatus === 200 ? "success" : "failure")
+        ).toLowerCase() === filterStatus.toLowerCase()
     )
-   .filter(item => {
-  if (!filterDateFrom) return true;
-  const d = new Date(item.executionDateTime);
-  const itemDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return itemDate >= filterDateFrom;
-})
-.filter(item => {
-  if (!filterDateTo) return true;
-  const d = new Date(item.executionDateTime);
-  const itemDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return itemDate <= filterDateTo;
-})
+    .filter((item) => {
+      if (!filterDateFrom) return true;
+      const d = new Date(item.executionDateTime);
+      const itemDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+        2,
+        "0"
+      )}-${String(d.getDate()).padStart(2, "0")}`;
+      return itemDate >= filterDateFrom;
+    })
+    .filter((item) => {
+      if (!filterDateTo) return true;
+      const d = new Date(item.executionDateTime);
+      const itemDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+        2,
+        "0"
+      )}-${String(d.getDate()).padStart(2, "0")}`;
+      return itemDate <= filterDateTo;
+    });
 
   // Sort history
   const sortedHistory = [...filteredHistory].sort((a, b) => {
@@ -127,24 +148,40 @@ const NotificationHistory = ({ can }) => {
         bValue = new Date(b.executionDateTime).getTime();
         break;
       case "rule":
-        aValue = rules.find(r => r.id === (a.rule?.id || a.rule))?.label || "";
-        bValue = rules.find(r => r.id === (b.rule?.id || b.rule))?.label || "";
+        aValue =
+          rules.find((r) => r.id === (a.rule?.id || a.rule))?.label || "";
+        bValue =
+          rules.find((r) => r.id === (b.rule?.id || b.rule))?.label || "";
         break;
       case "channel":
-        aValue = channels.find(c => String(c.id) === String(a.channel?.id || a.channel))?.label || "";
-        bValue = channels.find(c => String(c.id) === String(b.channel?.id || b.channel))?.label || "";
+        aValue =
+          channels.find(
+            (c) => String(c.id) === String(a.channel?.id || a.channel)
+          )?.label || "";
+        bValue =
+          channels.find(
+            (c) => String(c.id) === String(b.channel?.id || b.channel)
+          )?.label || "";
         break;
       case "template":
         aValue = a.notificationTemplate?.subject || "";
         bValue = b.notificationTemplate?.subject || "";
         break;
       case "user":
-        aValue = users.find(u => String(u.id) === String(a.user?.id || a.user))?.full_name_en || "";
-        bValue = users.find(u => String(u.id) === String(b.user?.id || b.user))?.full_name_en || "";
+        aValue =
+          users.find((u) => String(u.id) === String(a.user?.id || a.user))
+            ?.full_name_en || "";
+        bValue =
+          users.find((u) => String(u.id) === String(b.user?.id || b.user))
+            ?.full_name_en || "";
         break;
       case "status":
-        aValue = (a.status || (a.httpStatus === 200 ? "success" : "failure")).toLowerCase();
-        bValue = (b.status || (b.httpStatus === 200 ? "success" : "failure")).toLowerCase();
+        aValue = (
+          a.status || (a.httpStatus === 200 ? "success" : "failure")
+        ).toLowerCase();
+        bValue = (
+          b.status || (b.httpStatus === 200 ? "success" : "failure")
+        ).toLowerCase();
         break;
       default:
         aValue = "";
@@ -156,11 +193,16 @@ const NotificationHistory = ({ can }) => {
   });
 
   // Paginate history
-  const paginatedHistory = sortedHistory.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedHistory = sortedHistory.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">{t("notificationHistory") || "Notification History"}</h2>
+      <h2 className="text-2xl font-bold mb-4">
+        {t("notificationHistory") || "Notification History"}
+      </h2>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6 bg-white p-4 rounded-xl shadow">
         {/* User filter */}
@@ -200,7 +242,7 @@ const NotificationHistory = ({ can }) => {
           <option value="failure">{t("failure") || "Failure"}</option>
         </select>
         {/* Channel filter */}
-        <select 
+        <select
           value={filterChannel}
           onChange={(e) => setFilterChannel(e.target.value)}
           className="border border-gray-300 rounded-xl px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#166a45] min-w-[120px] bg-gray-50"
@@ -213,7 +255,9 @@ const NotificationHistory = ({ can }) => {
           ))}
         </select>
         {/* Date filters */}
-        <label className="text-gray-600 font-medium">{t("dateFrom") || "From"}</label>
+        <label className="text-gray-600 font-medium">
+          {t("dateFrom") || "From"}
+        </label>
         <input
           type="date"
           value={filterDateFrom}
@@ -252,7 +296,10 @@ const NotificationHistory = ({ can }) => {
                   className="px-4 py-2 text-xs text-gray-500 cursor-pointer whitespace-nowrap"
                   onClick={() => handleSort("executionDateTime")}
                 >
-                  <SortIcon active={sortBy === "executionDateTime"} order={sortOrder} />
+                  <SortIcon
+                    active={sortBy === "executionDateTime"}
+                    order={sortOrder}
+                  />
                   {t("date") || "Date"}
                   <FilterIcon active={!!(filterDateFrom || filterDateTo)} />
                 </th>
@@ -309,29 +356,49 @@ const NotificationHistory = ({ can }) => {
                 </tr>
               )}
               {paginatedHistory.map((item) => {
-                const statusValue = item.status || (item.httpStatus === 200 ? "success" : "failure");
+                const statusValue =
+                  item.status ||
+                  (item.httpStatus === 200 ? "success" : "failure");
                 const isSuccess = statusValue.toLowerCase() === "success";
                 return (
                   <tr key={item.id} className="border-b">
-                    <td className="px-4 py-2 text-sm whitespace-nowrap">{formatDateDMY(item.executionDateTime)}</td>
-                    <td className="px-4 py-2 text-sm">
-                      {rules.find(r => r.id === (item.rule?.id || item.rule))?.label || "-"}
+                    <td className="px-4 py-2 text-sm whitespace-nowrap">
+                      {formatDateDMY(item.executionDateTime)}
                     </td>
                     <td className="px-4 py-2 text-sm">
-                      {channels.find(c => String(c.id) === String(item.channel?.id || item.channel))?.label || "-"}
-                    </td>
-                    <td className="px-4 py-2 text-sm">{item.notificationTemplate?.subject || "-"}</td>
-                    <td className="px-4 py-2 text-sm">
-                      {users.find(u => String(u.id) === String(item.user?.id || item.user))?.full_name_en || "-"}
+                      {rules.find((r) => r.id === (item.rule?.id || item.rule))
+                        ?.label || "-"}
                     </td>
                     <td className="px-4 py-2 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        isSuccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                      }`}>
+                      {channels.find(
+                        (c) =>
+                          String(c.id) ===
+                          String(item.channel?.id || item.channel)
+                      )?.label || "-"}
+                    </td>
+                    <td className="px-4 py-2 text-sm">
+                      {item.notificationTemplate?.subject || "-"}
+                    </td>
+                    <td className="px-4 py-2 text-sm">
+                      {users.find(
+                        (u) =>
+                          String(u.id) === String(item.user?.id || item.user)
+                      )?.full_name_en || "-"}
+                    </td>
+                    <td className="px-4 py-2 text-sm">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          isSuccess
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
                         {t(statusValue) || statusValue}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-xs break-all">{item.request?.body || "-"}</td>
+                    <td className="px-4 py-2 text-xs break-all">
+                      {item.request?.body || "-"}
+                    </td>
                   </tr>
                 );
               })}
@@ -347,7 +414,8 @@ const NotificationHistory = ({ can }) => {
               {t("prev") || "Prev"}
             </button>
             <span>
-              {t("page") || "Page"} {page} / {Math.ceil(sortedHistory.length / pageSize) || 1}
+              {t("page") || "Page"} {page} /{" "}
+              {Math.ceil(sortedHistory.length / pageSize) || 1}
             </span>
             <button
               onClick={() => setPage((p) => p + 1)}
@@ -365,18 +433,28 @@ const NotificationHistory = ({ can }) => {
 
 const FilterIcon = ({ active }) => (
   <svg
-    className={`inline w-4 h-4 ml-1 ${active ? "text-[#166a45]" : "text-gray-400"}`}
+    className={`inline w-4 h-4 ml-1 ${
+      active ? "text-[#166a45]" : "text-gray-400"
+    }`}
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     viewBox="0 0 24 24"
   >
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.586a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.586a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z"
+    />
   </svg>
 );
 
 const SortIcon = ({ active, order }) => (
-  <span className={`inline-block mr-1 ${active ? "text-[#166a45]" : "text-gray-400"}`}>
+  <span
+    className={`inline-block mr-1 ${
+      active ? "text-[#166a45]" : "text-gray-400"
+    }`}
+  >
     {order === "asc" ? "▲" : "▼"}
   </span>
 );
