@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2 } from "lucide-react";
 import api from "../../../api";
 import useLanguage from "../../../hooks/useLanguage";
 
@@ -10,8 +10,9 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
   const [ruleName, setRuleName] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [frequency, setFrequency] = useState("");
-  const [operator, setOperator] = useState(">");
+  const [operator, setOperator] = useState("");
   const [defaultThreshold, setDefaultThreshold] = useState("");
+  const [conditionalThreshold, setConditionalThreshold] = useState("");
   const [dimension, setDimension] = useState({ id: "", label: "" });
   const [dimensionValue, setDimensionValue] = useState("");
   const [recipients, setRecipients] = useState([]);
@@ -23,6 +24,8 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [messageBody, setMessageBody] = useState("");
   const [apiLoaded, setApiLoaded] = useState(false);
+  const [showConditional, setShowConditional] = useState(false);
+  const [errors, setErrors] = useState({});
 
   // Data
   const [metrics, setMetrics] = useState([]);
@@ -112,6 +115,7 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
         setOperator(rule.operator || ">");
         setFrequency(rule.frequency || "");
         setSelectedTemplateId(rule.notificationTemplateId || null);
+
         const useCaseValue = rule.metric?.useCaseId;
         if (useCaseValue) setSelectedUseCaseId(Number(useCaseValue));
         if (rule.metricId) {
@@ -119,6 +123,7 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
           if (rule.metric) setMetrics([rule.metric]);
         }
         if (rule.dimensionId && rule.dimension) {
+          setShowConditional(true);
           setDimension({
             id: rule.dimension.id,
             label: rule.dimension.label,
@@ -136,7 +141,7 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
         }
         if (rule.dimensionValue) {
           setDimensionValue(rule.dimensionValue);
-          setDefaultThreshold("");
+          setDefaultThreshold(String(rule.thresholdValue) || "");
         } else {
           setDefaultThreshold(String(rule.thresholdValue) || "");
         }
@@ -379,26 +384,23 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
     setLoading(true);
 
     try {
-      if (!ruleName?.trim()) {
-        alert("Please enter a rule name.");
-        return;
+      const newErrors = {};
+      if (!ruleName?.trim()) newErrors.ruleName = t("ruleNameRequired");
+      if (!selectedUseCaseId) newErrors.useCaseId = t("useCaseRequired");
+      if (!selectedMetricId) newErrors.metricId = t("metricRequired");
+      if (!operator) newErrors.operator = t("operatorRequired");
+      if (!selectedTemplateId) newErrors.templateId = t("templateRequired");
+      if (!frequency) newErrors.frequency = t("frequencyRequired");
+      if (recipients.length === 0)
+        newErrors.recipients = t("recipientsRequired");
+
+      if (defaultThreshold === "" || defaultThreshold === null) {
+        newErrors.defaultThreshold = t("thresholdValueRequired");
+      } else if (isNaN(Number(defaultThreshold))) {
+        newErrors.defaultThreshold = t("thresholdValueInvalid");
       }
-      if (!selectedMetricId) {
-        alert("Please select a metric before submitting.");
-        return;
-      }
-      if (!selectedTemplateId) {
-        alert("Please select a notification template.");
-        return;
-      }
-      if (!frequency) {
-        alert("Please select a frequency.");
-        return;
-      }
-      if (recipients.length === 0) {
-        alert("Please add at least one recipient.");
-        return;
-      }
+      setErrors(newErrors);
+      if (Object.keys(newErrors).length > 0) return;
 
       const selectedChannels = [
         ...new Set(recipients.flatMap((rec) => rec.channels)),
@@ -428,12 +430,13 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
         return;
       }
 
-      // Only default threshold is used
-      if (!defaultThreshold) {
-        alert("Please enter a threshold value.");
+      const thresholdValue = Number(defaultThreshold);
+
+      if (isNaN(thresholdValue)) {
+        alert("Please enter a valid threshold value.");
         return;
       }
-      const thresholdValue = Number(defaultThreshold);
+
       if (isNaN(thresholdValue)) {
         alert("Please enter a valid threshold value.");
         return;
@@ -441,7 +444,6 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
 
       const ruleData = {
         label: ruleName.trim(),
-        useCase: Number(selectedUseCaseId),
         metricId: Number(selectedMetricId),
         operator: operator,
         thresholdValue: thresholdValue,
@@ -450,21 +452,28 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
           .filter(
             (rec) => rec.type === "user" && rec.id != null && rec.id !== ""
           )
-          .map((rec) => rec.id),
+          .map((rec) => rec.id), // Use ID as-is (numeric or UUID)
         groups: recipients
           .filter(
             (rec) => rec.type === "group" && rec.id != null && rec.id !== ""
           )
-          .map((rec) => Number(rec.id)),
-        channelIds: channelIds,
+          .map((rec) => Number(rec.id)), // Ensure group IDs are numbers
+        channelIds: channelIds, // Includes SMS if selected
         notificationTemplateId: Number(selectedTemplateId),
-        dimensionId: dimension?.id ? Number(dimension.id) : null,
-        dimensionValue: dimensionValue || null,
+        dimensionId:
+          showConditional && dimension?.id ? Number(dimension.id) : null,
+        dimensionValue:
+          showConditional && dimensionValue ? String(dimensionValue) : null,
         active: Boolean(isActive),
+        useCase: Number(selectedUseCaseId),
       };
 
-      onSave(ruleData, rule?.id);
+      console.log("📤 Prepared rule data:", JSON.stringify(ruleData, null, 2));
+
+      // Pass data to parent - let parent handle API call
+      onSave(ruleData, rule?.id); // Pass rule ID for edit mode
     } catch (err) {
+      console.error("❌ Validation failed:", err);
       alert(err.message);
     } finally {
       setLoading(false);
@@ -511,18 +520,26 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
               id="ruleName"
               type="text"
               value={ruleName}
-              onChange={(e) => setRuleName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 mb-1"
-              placeholder="Add Rule Name"
-              required
+              // onChange={(e) => setRuleName(e.target.value)}
+              onChange={(e) => {
+                setRuleName(e.target.value);
+                if (errors.ruleName)
+                  setErrors({ ...errors, ruleName: undefined });
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 mb-1 ${
+                errors.ruleName ? "border-red-500" : ""
+              }`}
+              placeholder={t("notificationsRuleNamePlaceholder")}
             />
+            {errors.ruleName && (
+              <div className="text-red-500 text-xs mt-1">{errors.ruleName}</div>
+            )}
             <label className="inline-flex items-center mt-2">
               <input
                 type="checkbox"
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="form-checkbox text-teal-600 rounded-md"
-                required
               />
               <span className="ml-2 text-gray-700">
                 {t("notificationsActive")}
@@ -548,8 +565,12 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                     setSelectedMetricId(null);
                     setDimension({ id: "", label: "" });
                     setDimensionValue("");
+                    if (errors.useCaseId)
+                      setErrors({ ...errors, useCaseId: undefined });
                   }}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    errors.useCaseId ? "border-red-500" : ""
+                  }`}
                 >
                   <option value="">{t("notificationsSelectUseCase")}</option>
                   {useCases.map((uc) => (
@@ -558,18 +579,28 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                     </option>
                   ))}
                 </select>
+                {errors.useCaseId && (
+                  <div className="text-red-500 text-xs mt-1">
+                    {errors.useCaseId}
+                  </div>
+                )}
               </div>
+
               {selectedUseCaseId && (
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
-                    Metrics
+                    {t("metrics")}
                   </label>
                   <select
                     value={selectedMetricId || ""}
-                    onChange={(e) =>
-                      setSelectedMetricId(Number(e.target.value) || null)
-                    }
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    onChange={(e) => {
+                      setSelectedMetricId(Number(e.target.value) || null);
+                      if (errors.metricId)
+                        setErrors({ ...errors, metricId: undefined });
+                    }}
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                      errors.metricId ? "border-red-500" : ""
+                    }`}
                   >
                     <option value="">{t("notificationsSelectCategory")}</option>
                     {Array.isArray(metrics) &&
@@ -579,6 +610,11 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                         </option>
                       ))}
                   </select>
+                  {errors.metricId && (
+                    <div className="text-red-500 text-xs mt-1">
+                      {errors.metricId}
+                    </div>
+                  )}
                 </div>
               )}
               <div>
@@ -587,30 +623,53 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                 </label>
                 <select
                   value={operator}
-                  onChange={(e) => setOperator(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
+                  onChange={(e) => {
+                    setOperator(e.target.value);
+                    if (errors.operator)
+                      setErrors({ ...errors, operator: undefined });
+                  }}
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    errors.operator ? "border-red-500" : ""
+                  }`}
                 >
+                  <option value="">
+                    {t("notificationsSelectOperator") || "Select Operator"}
+                  </option>
                   {availableOperators.map((op) => (
                     <option key={op} value={op}>
                       {op}
                     </option>
                   ))}
                 </select>
+                {errors.operator && (
+                  <div className="text-red-500 text-xs mt-1">
+                    {errors.operator}
+                  </div>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">
-                  {t("thresholdValue")}
+                  {t("notificationsThresholdValue")}
                 </label>
                 <input
                   type="number"
                   value={defaultThreshold}
-                  onChange={(e) => setDefaultThreshold(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
+                  onChange={(e) => {
+                    setDefaultThreshold(e.target.value);
+                    if (errors.defaultThreshold)
+                      setErrors({ ...errors, defaultThreshold: undefined });
+                  }}
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    errors.defaultThreshold ? "border-red-500" : ""
+                  }`}
                 />
+                {errors.defaultThreshold && (
+                  <div className="text-red-500 text-xs mt-1">
+                    {errors.defaultThreshold}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">
@@ -618,14 +677,17 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                 </label>
                 <select
                   value={frequency}
-                  onChange={(e) => setFrequency(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
+                  onChange={(e) => {
+                    setFrequency(e.target.value);
+                    if (errors.frequency)
+                      setErrors({ ...errors, frequency: undefined });
+                  }}
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    errors.frequency ? "border-red-500" : ""
+                  }`}
                 >
                   <option value="">{t("notificationsSelectFrequency")}</option>
-                  <option value="minutely">
-                    {t("notificationsFrequencyMinutely")}
-                  </option>
+                  <option value="minutely">Minutely</option>
                   <option value="hourly">
                     {t("notificationsFrequencyHourly")}
                   </option>
@@ -639,7 +701,136 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                     {t("notificationsFrequencyMonthly")}
                   </option>
                 </select>
+                {errors.frequency && (
+                  <div className="text-red-500 text-xs mt-1">
+                    {errors.frequency}
+                  </div>
+                )}
               </div>
+            </div>
+            <div className="border border-dashed border-gray-300 rounded-lg p-4 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-lg font-bold text-gray-600">
+                  {t("notificationsConditionalThreshold")}
+                </h4>
+                {!showConditional ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setShowConditional(true);
+                      setDimension({ id: "", label: "" });
+                      setDimensionValue("");
+                      setDimensionValues([]);
+                      // Fetch dimensions for the selected metric
+                      if (selectedMetricId) {
+                        try {
+                          const res = await api.get(
+                            `/dimensions/by-metric/${selectedMetricId}`
+                          );
+                          setDimensions(
+                            Array.isArray(res.data) ? res.data : []
+                          );
+                        } catch {
+                          setDimensions([]);
+                        }
+                      }
+                    }}
+                    className="text-green-800 text-3xl font-bold"
+                    title="Add Conditional Threshold"
+                  >
+                    +
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowConditional(false);
+                      setConditionalThreshold("");
+                      setDimension({ id: "", label: "" });
+                      setDimensionValue("");
+                    }}
+                    className="text-red-500 hover:text-red-700 text-xl"
+                    title="Remove Conditional Threshold"
+                  >
+                    <Trash2 size={22} />
+                  </button>
+                )}
+              </div>
+              {showConditional && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-2">
+                        {t("notificationsDimensionDistrict")}{" "}
+                        <span className="text-gray-400 font-normal">
+                          ({t("optional")})
+                        </span>
+                      </label>
+
+                      <select
+                        value={dimension?.id || ""}
+                        onChange={async (e) => {
+                          const selected = dimensions.find(
+                            (d) => d.id === Number(e.target.value)
+                          );
+                          setDimension(selected || { id: "", label: "" });
+                          setDimensionValue("");
+                          setDimensionValues([]);
+                          if (selected && selected.id) {
+                            try {
+                              const valRes = await api.get(
+                                `/dimensions/${selected.id}/values`
+                              );
+                              setDimensionValues(
+                                Array.isArray(valRes.data) ? valRes.data : []
+                              );
+                            } catch {
+                              setDimensionValues([]);
+                            }
+                          }
+                        }}
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 "
+                      >
+                        <option value="">
+                          {t("notificationsSelectDimension")}
+                        </option>
+                        {dimensions
+                          .filter((d) => d)
+                          .map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.label}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-2">
+                        {t("notificationsDimensionValue")}{" "}
+                        <span className="text-gray-400 font-normal">
+                          ({t("optional")})
+                        </span>
+                      </label>
+                      <select
+                        value={dimensionValue || ""}
+                        onChange={(e) => setDimensionValue(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 $"
+                      >
+                        <option value="">
+                          {t("notificationsSelectDimensionValue")}
+                        </option>
+                        {dimensionValues.map((val, idx) => {
+                          const valueKey = Object.keys(val)[0];
+                          return (
+                            <option key={idx} value={val[valueKey]}>
+                              {val[valueKey]}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -658,7 +849,11 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                 </label>
                 <select
                   value={selectedUser}
-                  onChange={(e) => setSelectedUser(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedUser(e.target.value);
+                    if (errors.recipients)
+                      setErrors({ ...errors, recipients: undefined });
+                  }}
                   className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="">{t("notificationsSelect")}</option>
@@ -678,6 +873,7 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                       </option>
                     ))}
                 </select>
+
                 <button
                   type="button"
                   onClick={handleAddUser}
@@ -693,7 +889,11 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                 </label>
                 <select
                   value={selectedGroup}
-                  onChange={(e) => setSelectedGroup(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedGroup(e.target.value);
+                    if (errors.recipients)
+                      setErrors({ ...errors, recipients: undefined });
+                  }}
                   className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="">{t("notificationsSelect")}</option>
@@ -716,6 +916,11 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                   {t("notificationsAdd")}
                 </button>
               </div>
+              {errors.recipients && (
+                <div className="text-red-500 text-xs mt-1">
+                  {errors.recipients}
+                </div>
+              )}
             </div>
             <div className="mt-4">
               <h4 className="font-semibold text-gray-700 mb-2 mt-10">
@@ -777,11 +982,14 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
             </label>
             <select
               value={selectedTemplateId || ""}
-              onChange={(e) =>
-                setSelectedTemplateId(Number(e.target.value) || null)
-              }
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-              required
+              onChange={(e) => {
+                setSelectedTemplateId(Number(e.target.value) || null);
+                if (errors.templateId)
+                  setErrors({ ...errors, templateId: undefined });
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                errors.templateId ? "border-red-500" : ""
+              }`}
             >
               <option value="">{t("notificationsSelectTemplate")}</option>
               {templates.map((template) => (
@@ -790,12 +998,17 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                 </option>
               ))}
             </select>
+            {errors.templateId && (
+              <div className="text-red-500 text-xs mt-1">
+                {errors.templateId}
+              </div>
+            )}
           </div>
 
           {/* Message Body */}
           <div className="mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t("messageTemplate")}
+              Message Template
             </label>
             <textarea
               value={messageBody}

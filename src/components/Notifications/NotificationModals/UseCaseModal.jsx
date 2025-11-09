@@ -9,6 +9,7 @@ const UseCaseModal = ({ onSave, useCase, onCancel }) => {
   const [active, setActive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (useCase) {
@@ -44,6 +45,14 @@ const UseCaseModal = ({ onSave, useCase, onCancel }) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    const newErrors = {};
+    if (!label.trim()) newErrors.label = t("useCaseNameRequired");
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // Call the parent's onSave function
@@ -87,12 +96,19 @@ const UseCaseModal = ({ onSave, useCase, onCancel }) => {
             <input
               type="text"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
-              required
+              onChange={(e) => {
+                setLabel(e.target.value);
+                if (errors.label) setErrors({ ...errors, label: undefined });
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
+                errors.label ? "border-red-500" : ""
+              }`}
               disabled={loading}
               placeholder={t("enterUseCaseName") || "Enter use case name"}
             />
+            {errors.label && (
+              <div className="text-red-500 text-xs mt-1">{errors.label}</div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

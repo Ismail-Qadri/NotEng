@@ -11,6 +11,7 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     api
@@ -43,6 +44,16 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
     setError("");
     setLoading(true);
 
+    const newErrors = {};
+    if (!subject.trim()) newErrors.subject = t("subjectRequired");
+    if (!body.trim()) newErrors.body = t("bodyRequired");
+    if (!channelId) newErrors.channelId = t("channelRequired");
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      setLoading(false);
+      return;
+    }
+
     try {
       await onSave({
         subject,
@@ -59,8 +70,9 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 mt-10">
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 mt-10 max-h-[70vh] flex flex-col">
+      <div className="flex-1 overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold text-gray-800">
             {template ? t("editTemplateModal") : t("addTemplateModal")}
@@ -89,12 +101,20 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
             <input
               type="text"
               value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
-              required
+              onChange={(e) => {
+                setSubject(e.target.value);
+                if (errors.subject)
+                  setErrors({ ...errors, subject: undefined });
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
+                errors.subject ? "border-red-500" : ""
+              }`}
               disabled={loading}
               placeholder={t("enterSubject") || "Enter subject"}
             />
+            {errors.subject && (
+              <div className="text-red-500 text-xs mt-1">{errors.subject}</div>
+            )}
           </div>
 
           <div>
@@ -103,13 +123,20 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
             </label>
             <textarea
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
+              onChange={(e) => {
+                setBody(e.target.value);
+                if (errors.body) setErrors({ ...errors, body: undefined });
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
+                errors.body ? "border-red-500" : ""
+              }`}
               rows={5}
-              required
               disabled={loading}
               placeholder={t("enterBody") || "Enter message body"}
             />
+            {errors.body && (
+              <div className="text-red-500 text-xs mt-1">{errors.body}</div>
+            )}
             <p className="text-xs text-gray-500 mt-1">
               {t("templateVariables") ||
                 "Available variables: {{userName}}, {{ruleLabel}}, {{currentValue}}, {{operator}}, {{thresholdValue}}"}
@@ -122,9 +149,14 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
             </label>
             <select
               value={channelId}
-              onChange={(e) => setChannelId(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
-              required
+              onChange={(e) => {
+                setChannelId(e.target.value);
+                if (errors.channelId)
+                  setErrors({ ...errors, channelId: undefined });
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
+                errors.channelId ? "border-red-500" : ""
+              }`}
               disabled={loading}
             >
               <option value="">{t("selectChannel") || "Select Channel"}</option>
@@ -134,6 +166,11 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
                 </option>
               ))}
             </select>
+            {errors.channelId && (
+              <div className="text-red-500 text-xs mt-1">
+                {errors.channelId}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-4">
@@ -177,6 +214,7 @@ const TemplatesModal = ({ onSave, template, onCancel }) => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   );
 };

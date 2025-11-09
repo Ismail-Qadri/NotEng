@@ -286,7 +286,12 @@ const UserModal = ({
     try {
       if (isNewUser) {
         // Creating a new user
-        payload = { nafath_id: formData.nafath_id };
+        payload = {
+          nafath_id: formData.nafath_id,
+          email: formData.email,
+          phone_number: formData.phone_number,
+          // ...add other fields as needed
+        };
         const userRes = await api.post(`/users`, payload);
         userId = userRes.data?.id;
       } else {
@@ -297,8 +302,12 @@ const UserModal = ({
         userId = formData.id || user?.id;
         // Send decoded nafathId in body, JWT in header
         await api.put(
-          `/users/${userId}`, // <-- Use UUID and decodedNafathId in URL
-          {}, // body can be empty or include other fields if needed
+          `/users/${userId}`,
+          {
+            email: formData.email,
+            phone_number: formData.phone_number,
+            // ...add other fields as needed
+          },
           { headers: { "x-nafath-id": jwt } }
         );
       }
