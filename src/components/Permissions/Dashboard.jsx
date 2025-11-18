@@ -61,7 +61,7 @@ const Dashboard = ({
     try {
       const res = await api.get("/roles");
       setRoles(res.data);
-      console.log("✅ Fetched roles:", res.data);
+      console.log("Fetched roles:", res.data);
     } catch (err) {
       setError && setError(err.message);
       console.error("❌ Error fetching roles:", err);
@@ -80,7 +80,7 @@ const Dashboard = ({
           })
         : res.data;
       setGroups(sortedGroups);
-      console.log("✅ Fetched groups:", sortedGroups);
+      console.log("Fetched groups:", sortedGroups);
     } catch (err) {
       setError(err.message);
       console.error("❌ Error fetching groups:", err);
@@ -99,7 +99,7 @@ const Dashboard = ({
           })
         : res.data;
       setResources(sortedResources);
-      console.log("✅ Fetched resources:", sortedResources);
+      console.log("Fetched resources:", sortedResources);
     } catch (err) {
       setError(err.message);
       console.error("❌ Error fetching resources:", err);
@@ -118,7 +118,7 @@ const Dashboard = ({
           })
         : res.data;
       setUsers(sortedUsers);
-      console.log("✅ Fetched users:", sortedUsers);
+      console.log("Fetched users:", sortedUsers);
     } catch (err) {
       setError(err.message);
       console.error("❌ Error fetching users:", err);
@@ -129,7 +129,7 @@ const Dashboard = ({
     try {
       const res = await api.get("/permissions");
       setPermissions(res.data);
-      console.log("✅ Fetched permissions:", res.data);
+      console.log("Fetched permissions:", res.data);
     } catch (err) {
       setError(err.message);
       console.error("❌ Error fetching permissions:", err);

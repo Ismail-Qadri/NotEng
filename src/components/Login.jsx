@@ -32,9 +32,6 @@ const Login = () => {
       const nafathId = getNafathIdFromJWT(jwtToken);
       if (!nafathId) throw new Error("Nafath ID not found in token");
 
-      console.log("✅ Decoded nafathId from JWT:", nafathId);
-      console.log("📡 Fetching permissions for nafathId:", nafathId);
-
       // Send JWT as x-nafath-id header
       const res = await api.get(
         `/auth/user-permissions?casbin_subject=${nafathId}`,
@@ -47,8 +44,6 @@ const Login = () => {
         }
       );
       const result = res.data;
-      console.log("✅ Raw permissions API response:", result);
-
       const permissionsMap = {};
       result.data.forEach(([roleStr, resourceStr, permissionStr]) => {
         const resourceId = resourceStr.split("::")[1];
@@ -59,9 +54,6 @@ const Login = () => {
 
       localStorage.setItem("userId", jwtToken);
       localStorage.setItem("userPermissions", JSON.stringify(permissionsMap));
-
-      // Show userPermissions in console
-      console.log("🔑 userPermissions in localStorage:", localStorage.getItem("userPermissions"));
 
       navigate("/permissions");
     } catch (err) {
@@ -96,13 +88,12 @@ const Login = () => {
       );
 
       const result = response.data;
-      console.log("Login response:", result);
+
 
       if (response.status === 200 && result.random && result.sessionId) {
         showWaitingScreen(result.random);
 
         const wsUrl = `wss://dev-api.wedo.solutions:3000/ws?sessionId=${result.sessionId}`;
-        console.log("Connecting to WebSocket:", wsUrl);
 
         const socket = new WebSocket(wsUrl);
         setWs(socket);

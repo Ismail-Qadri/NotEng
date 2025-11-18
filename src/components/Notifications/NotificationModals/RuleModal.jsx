@@ -468,8 +468,6 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
         useCase: Number(selectedUseCaseId),
       };
 
-      console.log("📤 Prepared rule data:", JSON.stringify(ruleData, null, 2));
-
       // Pass data to parent - let parent handle API call
       onSave(ruleData, rule?.id); // Pass rule ID for edit mode
     } catch (err) {

@@ -110,7 +110,7 @@ const UserModal = ({
           decodedNafathId
         );
       } else {
-        console.log("❌ [UserModal] No JWT found in localStorage.");
+        console.log("[UserModal] No JWT found in localStorage.");
       }
     }
 
