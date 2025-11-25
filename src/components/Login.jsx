@@ -93,7 +93,8 @@ const Login = () => {
       if (response.status === 200 && result.random && result.sessionId) {
         showWaitingScreen(result.random);
 
-        const wsUrl = `wss://dev-api.wedo.solutions:3000/ws?sessionId=${result.sessionId}`;
+        // const wsUrl = `wss://dev-api.wedo.solutions:3000/ws?sessionId=${result.sessionId}`;
+        const wsUrl = `wss://baladyeye-stg.momah.gov.sa/notifications-api/ws?sessionId=${result.sessionId}`;
 
         const socket = new WebSocket(wsUrl);
         setWs(socket);

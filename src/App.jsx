@@ -46,7 +46,7 @@ const App = () => {
             </ProtectedRoute>
           } 
         />
-        {/* Catch-all route: redirect any unknown path to /login */}
+        {/* Redirect any unknown path to /login */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
