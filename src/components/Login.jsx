@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { getNafathIdFromJWT } from "../utils/jwt";
+import { io } from "socket.io-client";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -67,98 +68,118 @@ const Login = () => {
     }
   };
 
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!id.trim()) {
-      showError("ID number is required", "ERR_VALIDATION_001");
-      return;
-    }
+  if (!id.trim()) {
+    showError("ID number is required", "ERR_VALIDATION_001");
+    return;
+  }
 
-    try {
-      const response = await api.post(
-        "/auth/login",
-        { id: id.trim() },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        }
-      );
-
-      const result = response.data;
-
-
-      if (response.status === 200 && result.random && result.sessionId) {
-        showWaitingScreen(result.random);
-
-        // const wsUrl = `wss://dev-api.wedo.solutions:3000/ws?sessionId=${result.sessionId}`;
-        const wsUrl = `wss://baladyeye-stg.momah.gov.sa/notifications-api/ws?sessionId=${result.sessionId}`;
-
-        const socket = new WebSocket(wsUrl);
-        setWs(socket);
-
-        socket.onopen = () => {
-          console.log("WebSocket connected successfully");
-        };
-
-        socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log("WebSocket message received:", data);
-
-            const status = data.status?.toUpperCase();
-
-            if (status === "COMPLETED" || status === "APPROVED") {
-              const jwtToken = data.userId;
-              if (jwtToken) {
-                localStorage.setItem("userId", jwtToken);
-                fetchUserPermissions(jwtToken);
-              } else {
-                showError("No token received from server", "ERR_NO_TOKEN");
-              }
-            } else if (status === "REJECTED") {
-              socket.close();
-              showError("Request is rejected", "ERR_REQUEST_REJECTED_005");
-            } else if (status === "EXPIRED") {
-              socket.close();
-              showError("Request has expired. Please try again.", "ERR_REQUEST_EXPIRED_009");
-            } else {
-              console.log("Status update:", status);
-            }
-          } catch (err) {
-            console.error("Error parsing WebSocket message:", err);
-          }
-        };
-
-        socket.onerror = (error) => {
-          console.error("WebSocket error:", error);
-          showError("Connection error occurred. Please try again later.", "ERR_WEBSOCKET_007");
-        };
-
-        socket.onclose = (event) => {
-          console.log("WebSocket closed:", event.code, event.reason);
-        };
-      } else {
-        const errorMessage = result.error || result.message || "Authentication failed";
-        let errorCode = "ERR_GENERAL_LOGIN_008";
-
-        if (response.status === 400) errorCode = "ERR_INVALID_REQUEST_001";
-        else if (response.status === 401) errorCode = "ERR_UNAUTHORIZED_401";
-        else if (response.status === 500) errorCode = "ERR_SERVER_ERROR_002";
-
-        showError(errorMessage, errorCode);
+  try {
+    const response = await api.post(
+      "/auth/login",
+      { id: id.trim() },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
       }
-    } catch (err) {
-      console.error("Network error:", err);
-      showError("Network error. Please check your internet connection and try again.", "ERR_NETWORK_004");
+    );
+
+    const result = response.data;
+
+    if (response.status === 200 && result.random && result.sessionId) {
+      showWaitingScreen(result.random);
+
+      // Use Socket.IO for connection
+      const socket = io('https://baladyeye-stg.momah.gov.sa', {
+        path: '/notifications-api/ws',
+        query: { sessionId: result.sessionId },
+        transports: ['websocket', 'polling'],
+      });
+      setWs(socket);
+
+      socket.on('connect', () => {
+        console.log('🟢 Socket.IO connected!');
+      });
+
+      socket.on('nafath:init', (data) => {
+        console.log('📩 Initial status received:', data.status);
+        // Optionally handle initial status
+      });
+
+      socket.on('nafath:update', (data) => {
+        console.log('🔔 Status update:', data);
+        const status = data.status?.toUpperCase();
+
+        if (status === "COMPLETED" || status === "APPROVED") {
+          const jwtToken = data.userId;
+          if (jwtToken) {
+            localStorage.setItem("userId", jwtToken);
+            fetchUserPermissions(jwtToken);
+          } else {
+            showError("No token received from server", "ERR_NO_TOKEN");
+          }
+          if (data.userInfoError) {
+            console.warn('⚠️ User info error:', data.userInfoError);
+          }
+        }
+     
+        else if (status === "REJECTED") {
+          socket.disconnect();
+          showError("Request is rejected", "ERR_REQUEST_REJECTED_005");
+        } else if (status === "EXPIRED") {
+          socket.disconnect();
+          showError("Request has expired. Please try again.", "ERR_REQUEST_EXPIRED_009");
+        } else {
+          console.log("Status update:", status);
+        }
+      });
+
+      socket.on('error', (error) => {
+        console.error("Socket.IO error:", error);
+        showError(
+          error?.message || "Connection error occurred. Please try again later.",
+          "ERR_SOCKETIO_007"
+        );
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log("Socket.IO disconnected:", reason);
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error("Socket.IO connection error:", error);
+        showError(
+          error?.message || "Connection error occurred. Please try again later.",
+          "ERR_SOCKETIO_CONNECT"
+        );
+      });
+
+    } else {
+      const errorMessage = result.error || result.message || "Authentication failed";
+      let errorCode = "ERR_GENERAL_LOGIN_008";
+
+      if (response.status === 400) errorCode = "ERR_INVALID_REQUEST_001";
+      else if (response.status === 401) errorCode = "ERR_UNAUTHORIZED_401";
+      else if (response.status === 500) errorCode = "ERR_SERVER_ERROR_002";
+
+      showError(errorMessage, errorCode);
     }
-  };
+  } catch (err) {
+    console.error("Network error:", err);
+    showError("Network error. Please check your internet connection and try again.", "ERR_NETWORK_004");
+  }
+};
 
   useEffect(() => {
     return () => {
-      if (ws) ws.close();
+     if (ws) {
+      ws.disconnect(); 
+    }
     };
   }, [ws]);
 
