@@ -2,6 +2,7 @@ import axios from "axios";
 import { getNafathIdFromJWT } from "./utils/jwt";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// || "https://dev-api.wedo.solutions:3000/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,29 +14,16 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    config.headers = config.headers || {};
-
     const token = localStorage.getItem("authToken") || localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // only add x-nafath-id for user-permissions endpoint
-    const url = (config.url || "").toLowerCase();
-    const needsNafath = url.includes("/auth/user-permissions") || (config.baseURL && (config.baseURL + url).toLowerCase().includes("/auth/user-permissions"));
-
-    if (needsNafath) {
-      const jwt = localStorage.getItem("userId");
-      if (jwt) {
-        const nafathId = getNafathIdFromJWT(jwt);
-        if (nafathId) {
-          config.headers["x-nafath-id"] = jwt;
-        }
-      }
-    } else {
-      // ensure header is not sent for other endpoints
-      if (config.headers["x-nafath-id"]) {
-        delete config.headers["x-nafath-id"];
+    const jwt = localStorage.getItem("userId");
+    if (jwt) {
+      const nafathId = getNafathIdFromJWT(jwt);
+      if (nafathId) {
+        config.headers["x-nafath-id"] = jwt;
       }
     }
 
@@ -61,6 +49,9 @@ api.interceptors.response.use(
       if (import.meta.env.DEV) {
         console.error("🔒 Unauthorized - token may be expired");
       }
+      // Redirect to login- optional
+      // localStorage.clear();
+      // window.location.href = "/login";
     }
 
     if (import.meta.env.DEV) {
@@ -76,3 +67,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+
