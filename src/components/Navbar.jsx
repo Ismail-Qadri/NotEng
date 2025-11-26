@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
 import useLanguage from "../hooks/useLanguage";
 import nav_logo from '../assets/MOMAH_LOGO.svg';
 
@@ -8,8 +9,12 @@ const Navbar = () => {
   const menuRef = useRef(null);
   const btnRef = useRef(null);
   const langBtnRef = useRef(null);
-  const [activeLink, setActiveLink] = useState(window.location.pathname);
+  const location = useLocation();
+  const [activeLink, setActiveLink] = useState(location.pathname);
 
+  useEffect(() => {
+    setActiveLink(location.pathname);
+  }, [location]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -35,7 +40,6 @@ const Navbar = () => {
         className="fixed top-0 left-0 w-full z-50 bg-white shadow-lg flex items-center justify-between h-[70px] px-[30px] transition-all duration-300"
       >
         <div className="flex items-center gap-5">
-          {/* Menu toggle button */}
           <button
             ref={btnRef}
             type="button"
@@ -61,14 +65,13 @@ const Navbar = () => {
             ></span>
           </button>
 
-           {/* Language button */}
           <button
             ref={langBtnRef}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               setLanguage(isArabic ? "en" : "ar");
-              setIsMenuOpen(false); 
+              setIsMenuOpen(false);
             }}
             className="font-normal text-[16px] text-[#407EC9] hover:text-[#1757a3] transition-colors duration-200 focus:outline-none"
           >
@@ -76,19 +79,19 @@ const Navbar = () => {
           </button>
         </div>
 
-        <a href="/" className="flex items-center">
+        <Link to="/" className="flex items-center">
           <img
             src={nav_logo}
             alt="Logo"
             className={`h-9 ${isArabic ? "mr-4" : "ml-4"}`}
           />
-        </a>
+        </Link>
       </nav>
+
       {/* Side Menu */}
       <div
         ref={menuRef}
         className={`fixed top-0 h-full w-4/5 w-[80%] max-w-[300px] bg-white shadow-lg transform transition-transform duration-300 z-[9999] flex flex-col p-5 
-        transition-transform duration-300
           ${isArabic
             ? isMenuOpen
               ? "right-0"
@@ -99,7 +102,6 @@ const Navbar = () => {
           }
         `}
       >
-
         <div className="flex justify-between items-center mb-5">
           <span className="text-lg font-bold text-gray-600">
             {isArabic ? "القائمة" : "List"}
@@ -114,41 +116,50 @@ const Navbar = () => {
         <hr className="border-gray-200" />
 
         {/* Links */}
-      <div className="mt-5 grid gap-4">
-  <a
-    href="/permissions"
-    onClick={() => setActiveLink("/permissions")}
-    className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
-      ${activeLink === "/permissions" ? "bg-green-200 bg text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
-    `}
-  >
-    <span className="font-semibold text-[14px]">
-      {isArabic ? "إدارة الصلاحيات" : "Managing Permissions"}
-    </span>
-  </a>
-  <a
-    href="/notifications"
-    onClick={() => setActiveLink("/notifications")}
-    className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100 
-      ${activeLink === "/notifications" ? "bg-green-200 bg text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
-    `}
-  >
-    <span className="font-semibold text-[14px] ">
-      {isArabic ? "إدارة الإشعارات" : "Managing Notifications"}
-    </span>
-  </a>
-  <a
-    href="/"
-    onClick={() => setActiveLink("/")}
-    className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
-      ${activeLink === "/" ? "bg-green-200 bg text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
-    `}
-  >
-    <span className="font-semibold text-[14px] ">
-      {isArabic ? "لوحات المؤشرات" : "Dashboard"}
-    </span>
-  </a>
-</div>
+        <div className="mt-5 grid gap-4">
+          <Link
+            to="/permissions"
+            onClick={() => {
+              setActiveLink("/permissions");
+              setIsMenuOpen(false);
+            }}
+            className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
+              ${activeLink === "/permissions" ? "bg-green-200 text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
+            `}
+          >
+            <span className="font-semibold text-[14px]">
+              {isArabic ? "إدارة الصلاحيات" : "Managing Permissions"}
+            </span>
+          </Link>
+          <Link
+            to="/notifications"
+            onClick={() => {
+              setActiveLink("/notifications");
+              setIsMenuOpen(false);
+            }}
+            className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100 
+              ${activeLink === "/notifications" ? "bg-green-200 text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
+            `}
+          >
+            <span className="font-semibold text-[14px]">
+              {isArabic ? "إدارة الإشعارات" : "Managing Notifications"}
+            </span>
+          </Link>
+          <Link
+            to="/"
+            onClick={() => {
+              setActiveLink("/");
+              setIsMenuOpen(false);
+            }}
+            className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
+              ${activeLink === "/" ? "bg-green-200 text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
+            `}
+          >
+            <span className="font-semibold text-[14px]">
+              {isArabic ? "لوحات المؤشرات" : "Dashboard"}
+            </span>
+          </Link>
+        </div>
       </div>
     </>
   );
