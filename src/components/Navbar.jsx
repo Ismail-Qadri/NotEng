@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import useLanguage from "../hooks/useLanguage";
-import nav_logo from '../assets/REGA_LOGO.svg';
+import nav_logo from '../assets/MOMAH_LOGO.svg';
 
 const Navbar = () => {
   const { language, setLanguage } = useLanguage();
