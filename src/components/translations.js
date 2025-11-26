@@ -272,6 +272,12 @@ const translations = {
   dimensionRequired: "Dimension is required.",
   dimensionNameRequired: "Dimension name is required.",
   columnNameRequired: "Column name is required.",
+  noUsersFound: "No users found.",
+  noGroupsFound: "No groups found.",
+  noRolesFound: "No roles found.",
+  noPermissionsFound: "No permissions found.",
+  noResourcesFound: "No resources found.",
+  noResultsFound: "No results found.",
   },
   ar: {
     permissionManagement: 'إدارة الصلاحيات',
@@ -548,6 +554,12 @@ sqlQueryRequired: "استعلام SQL مطلوب.",
 dimensionRequired: "البُعد مطلوب.",
 dimensionNameRequired: "اسم البُعد مطلوب.",
 columnNameRequired: "اسم العمود مطلوب.",
+noUsersFound: "لم يتم العثور على مستخدمين.",
+noResultsFound: "لم يتم العثور على نتائج.",
+noGroupsFound: "لم يتم العثور على مجموعات.",
+noRolesFound: "لم يتم العثور على أدوار.",
+noPermissionsFound: "لم يتم العثور على صلاحيات.",
+noResourcesFound: "لم يتم العثور على موارد.",
   }
 };
 
