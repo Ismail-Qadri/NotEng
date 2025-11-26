@@ -8,7 +8,7 @@ import CasbinProvider from "./components/CasbinProvider";
 
 const App = () => {
   return (
-    <Router>
+    <Router basename="/notifications-ui">
       <Routes>
         <Route path="/login" element={<Login />} />
     
