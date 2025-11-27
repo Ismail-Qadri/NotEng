@@ -33,29 +33,19 @@ const Dashboard = ({
   const [activeTab, setActiveTab] = useState(null);
   const { language, setLanguage, t } = useLanguage();
 
-  // Set default tab based on permissions
   useEffect(() => {
-    if (can && activeTab === null) {
-      const getDefaultTab = () => {
-        if (can("User Management", "read")) {
-          return "users";
-        }
-        if (can("Group Management", "read")) {
-          return "groups";
-        }
-        if (can("Role Management", "read")) {
-          return "roles";
-        }
-        if (can("Resource Management", "read")) {
-          return "resources";
-        }
-        return null;
-      };
-
-      const tab = getDefaultTab();
-      setActiveTab(tab);
+  if (can && activeTab === null) {
+    if (can("User Management", "read")) {
+      setActiveTab("users");
+    } else if (can("Group Management", "read")) {
+      setActiveTab("groups");
+    } else if (can("Role Management", "read")) {
+      setActiveTab("roles");
+    } else if (can("Resource Management", "read")) {
+      setActiveTab("resources");
     }
-  }, [can, activeTab]); // ✅ Add activeTab to dependencies
+  }
+}, [can]);
 
   const fetchRoles = async () => {
     try {
@@ -64,7 +54,7 @@ const Dashboard = ({
       console.log("Fetched roles:", res.data);
     } catch (err) {
       setError && setError(err.message);
-      console.error("❌ Error fetching roles:", err);
+      console.error("Error fetching roles:", err);
     }
   };
 
