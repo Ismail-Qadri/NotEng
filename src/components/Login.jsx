@@ -56,7 +56,8 @@ const Login = () => {
       localStorage.setItem("userId", jwtToken);
       localStorage.setItem("userPermissions", JSON.stringify(permissionsMap));
 
-      navigate("/permissions");
+      // navigate("/permissions");
+      navigate("/notifications");
     } catch (err) {
       console.error("❌ Failed to fetch user permissions:", err);
       const errorMessage =

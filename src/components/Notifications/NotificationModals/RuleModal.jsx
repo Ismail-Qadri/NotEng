@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, X, Trash2 } from "lucide-react";
+import { FaEnvelope, FaSms, FaWhatsapp, FaCoins } from "react-icons/fa";
 import api from "../../../api";
 import useLanguage from "../../../hooks/useLanguage";
 
@@ -37,7 +38,11 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
   const [channels, setChannels] = useState([]);
   const [templates, setTemplates] = useState([]);
   const availableOperators = [">", "<", "=", "!="];
-  const availableChannels = ["Email", "SMS"];
+  const availableChannels = [
+    { name: "Email", icon: FaEnvelope, color: "text-blue-600" },
+    { name: "SMS", icon: FaSms, color: "text-green-600" },
+    { name: "WhatsApp", icon: FaWhatsapp, color: "text-emerald-600" },
+  ];
 
   // Fetch all static data once
   useEffect(() => {
@@ -941,23 +946,39 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
                           {rec.type === "group" ? "(Group)" : ""}
                         </span>
                       </div>
-                      <div className="flex gap-4 mt-2 md:mt-0">
-                        {availableChannels.map((channel) => (
-                          <label
-                            key={channel}
-                            className="flex items-center gap-1"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={rec.channels.includes(channel)}
-                              onChange={() =>
-                                handleChannelToggle(rec.id, channel)
-                              }
-                              className="form-checkbox text-teal-600 rounded-md"
-                            />
-                            <span className="text-gray-700">{channel}</span>
-                          </label>
-                        ))}
+                      <div className="flex gap-4 mt-2 md:mt-0 items-center">
+                        {availableChannels.map((channel) => {
+                          const Icon = channel.icon;
+                          const isChecked = rec.channels.includes(channel.name);
+                          return (
+                            <label
+                              key={channel.name}
+                              className="relative flex flex-col items-center gap-1 cursor-pointer group"
+                              title={channel.name}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  handleChannelToggle(rec.id, channel.name)
+                                }
+                                className="sr-only"
+                              />
+                              <div
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg border-2 transition-all duration-200 ${
+                                  isChecked
+                                    ? `${channel.color} border-current bg-opacity-10`
+                                    : "border-gray-300 text-gray-400 hover:border-gray-400"
+                                }`}
+                              >
+                                <Icon size={16} />
+                              </div>
+                              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                {channel.name}
+                              </span>
+                            </label>
+                          );
+                        })}
                         <button
                           type="button"
                           onClick={() => handleRecipientRemove(rec.id)}
