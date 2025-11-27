@@ -68,7 +68,6 @@ const NotificationsDashboard = ({ can }) => {
     visibleTabs.length > 0 ? visibleTabs[0].key : null
   );
 
-
   useEffect(() => {
     if (visibleTabs.length === 0) {
       setActiveTab(null);
@@ -128,26 +127,25 @@ const NotificationsDashboard = ({ can }) => {
                   {t("notificationsManagement")}
                 </h1>
               </div>
-        
               <nav
-  className={`flex flex-row items-center gap-2 p-2 bg-white rounded-full shadow-lg ${
-    language === "ar" ? "flex-row-reverse" : ""
-  }`}
->
-  {visibleTabs.map((tab) => (
-    <button
-      key={tab.key}
-      onClick={() => setActiveTab(tab.key)}
-      className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 whitespace-nowrap ${
-        activeTab === tab.key
-          ? "bg-[#166a45] text-white"
-          : "text-gray-700 hover:bg-gray-200"
-      }`}
-    >
-      {tab.icon} {tab.label}
-    </button>
-  ))}
-</nav>
+                className={`flex items-center p-1 bg-white rounded-full shadow-lg
+                ${language === "ar" ? "flex-row space-x-reverse space-x-2" : "flex-row space-x-2"}
+              `}
+              >
+                {visibleTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
+                      activeTab === tab.key
+                        ? "bg-[#166a45] text-white"
+                        : "text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ))}
+              </nav>
             </header>
           </div>
           {/* Tab content */}
