@@ -39,10 +39,10 @@ const RuleModal = ({ onSave, rule, onCancel }) => {
   const [templates, setTemplates] = useState([]);
   const availableOperators = [">", "<", "=", "!="];
   const availableChannels = [
-    { name: "Email", icon: FaEnvelope, color: "text-blue-600" },
-    { name: "SMS", icon: FaSms, color: "text-green-600" },
-    { name: "WhatsApp", icon: FaWhatsapp, color: "text-emerald-600" },
-  ];
+  { name: "Email", icon: FaEnvelope, color: "text-blue-600" },
+  { name: "SMS", icon: FaSms, color: "text-green-600" },
+  { name: "WhatsApp", icon: FaWhatsapp, color: "text-emerald-600" },
+ ];
 
   // Fetch all static data once
   useEffect(() => {
