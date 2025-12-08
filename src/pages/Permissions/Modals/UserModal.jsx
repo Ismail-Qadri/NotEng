@@ -312,19 +312,6 @@ const UserModal = ({
         );
       }
 
-      // Remove user from all groups
-      if (userId && Array.isArray(groups)) {
-        for (const group of groups) {
-          try {
-            await api.delete(
-              `/associations/groups/${group.id}/users/${userId}`
-            );
-          } catch (err) {
-            // Ignore errors for groups the user isn't in
-          }
-        }
-      }
-
       // Associate user with selected groups
       if (userId && Array.isArray(formData.groupIds)) {
         for (const groupId of formData.groupIds) {
@@ -339,6 +326,20 @@ const UserModal = ({
           }
         }
       }
+
+      // Remove user from all groups
+      if (userId && Array.isArray(groups)) {
+        for (const group of groups) {
+          try {
+            await api.delete(
+              `/associations/groups/${group.id}/users/${userId}`
+            );
+          } catch (err) {
+            // Ignore errors for groups the user isn't in
+          }
+        }
+      }
+
 
       if (typeof onSave === "function") {
         onSave({ ...formData, id: userId });

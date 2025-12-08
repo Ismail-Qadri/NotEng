@@ -4,7 +4,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
-import { LanguageProvider } from './components/LanguageProvider';
+import { LanguageProvider } from './pages/LanguageProvider';
 
 // Make Buffer and process available globally
 window.Buffer = Buffer;

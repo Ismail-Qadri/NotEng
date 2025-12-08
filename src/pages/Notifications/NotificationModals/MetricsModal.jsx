@@ -89,7 +89,7 @@ const MetricsModal = ({ onSave, metric, onCancel }) => {
   };
 
   return (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-8 mt-10 transform transition-transform scale-100 max-h-[75vh] flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold text-gray-800">
@@ -110,7 +110,10 @@ const MetricsModal = ({ onSave, metric, onCancel }) => {
             {error}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[70vh] p-2 space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="overflow-y-auto max-h-[70vh] p-2 space-y-6"
+        >
           <div>
             <label className="block text-gray-700 font-semibold mb-2">
               {t("metricName")}
@@ -283,8 +286,7 @@ const MetricsModal = ({ onSave, metric, onCancel }) => {
             </button>
           </div>
         </form>
-    
-    </div>
+      </div>
     </div>
   );
 };

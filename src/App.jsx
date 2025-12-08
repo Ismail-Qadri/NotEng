@@ -1,10 +1,10 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Dashboard from "./components/Permissions/Dashboard";
-import Login from "./components/Login";
-import ProtectedRoute from "./components/ProtectedRoute";
-import NotificationsDashboard from "./components/Notifications/NotificationsMainPage/NotificationsDashboard";
-import CasbinProvider from "./components/CasbinProvider";
+import Dashboard from "./pages/Permissions/Dashboard";
+import Login from "./pages/Login";
+import ProtectedRoute from "./pages/ProtectedRoute";
+import NotificationsDashboard from "./pages/Notifications/NotificationsMainPage/NotificationsDashboard";
+import CasbinProvider from "./pages/CasbinProvider";
 
 const App = () => {
   return (
