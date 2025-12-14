@@ -1,85 +1,111 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import useLanguage from '../../../hooks/useLanguage';
-import api from '../../../api'; 
+import React, { useState, useEffect } from "react";
+import { Form as AntForm } from "antd";
+import { UniversalForm, UniversalModal } from "../../../components/common";
+import useLanguage from "../../../hooks/useLanguage";
+import api from "../../../api";
 
 const ResourceModal = ({ onClose, onSave, resource, can }) => {
   const { t } = useLanguage();
+  const [form] = AntForm.useForm();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const isNewResource = !resource || !resource.id;
-  const isEdit = !!resource && !!resource.id;
-  const [formData, setFormData] = useState(resource || { name: '', category: '', description: '' });
+  const jwt = localStorage.getItem("userId");
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (resource) {
+      form.setFieldsValue({
+        name: resource.name || "",
+        category: resource.category || "",
+        description: resource.description || "",
+      });
+    }
+  }, [resource, form]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      name: formData.name,
-      category: formData.category || '',
-      description: formData.description || ''
-    };
-
+  const handleSubmit = async (values) => {
+    setLoading(true);
+    setError("");
     try {
       let res;
-      if (resource && resource.id) {
-        res = await api.put(`/resources/${resource.id}`, payload);
-        if (typeof onSave === 'function') {
-          onSave(res.data);
-        }
+      if (resource?.id) {
+        res = await api.put(`/resources/${resource.id}`, values, {
+          headers: { "x-nafath-id": jwt },
+        });
       } else {
-        res = await api.post(`/resources`, payload);
-        if (typeof onSave === 'function') {
-          onSave(res.data);
-        }
+        res = await api.post(`/resources`, values, {
+          headers: { "x-nafath-id": jwt },
+        });
       }
-      // onClose();
+      onSave(res.data);
+      onClose();
     } catch (err) {
-      alert('Error saving resource: ' + (err.response?.data?.message || err.message));
-      console.error('Error saving resource:', err);
+      setError(err.response?.data?.message || err.message);
+      alert(
+        "Error saving resource: " + (err.response?.data?.message || err.message)
+      );
+      console.error("Error saving resource:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const formFields = [
+    {
+      name: "name",
+      label: t("name"),
+      type: "input",
+      rules: [
+        { required: true, message: t("nameRequired") || "Name is required" },
+      ],
+      placeholder: t("resourceNamePlaceholder"),
+      disabled: !!resource?.id, // Read-only when editing
+    },
+    {
+      name: "category",
+      label: t("category"),
+      type: "input",
+      rules: [
+        {
+          required: true,
+          message: t("categoryRequired") || "Category is required",
+        },
+      ],
+      placeholder: t("categoryPlaceholder"),
+    },
+    {
+      name: "description",
+      label: t("description"),
+      type: "input",
+      placeholder: t("descriptionPlaceholder"),
+    },
+  ];
+
+  const initialValues = resource
+    ? {
+        name: resource.name || "",
+        category: resource.category || "",
+        description: resource.description || "",
+      }
+    : {};
+
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-gray-800">{resource ? t('editResourceModal') : t('addResourceModal')}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2" htmlFor="name">{t('name')}</label>
-            <input type="text" placeholder={t('resourceNamePlaceholder') || 'Enter resource name'} id="name" name="name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required readOnly={isEdit} />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2" htmlFor="category">{t('category')}</label>
-            <input type="text" placeholder={t('categoryNamePlaceholder') || 'Enter category'} id="category" name="category" value={formData.category || ''} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2" htmlFor="description">{t('description')}</label>
-            <input type="text" id="description" placeholder={t('descriptionNamePlaceholder') || 'Enter description'} name="description" value={formData.description || ''} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" required />
-          </div>
-          <div className="flex justify-end space-x-4">
-            <button type="button" onClick={onClose} className="px-6 py-2 border rounded-full">{t('cancel')}</button>
-            <button
-              type="submit"
-              disabled={
-                isNewResource
-                  ? !can("Resource Management", "write")
-                  : !can("Resource Management", "write")
-              }
-              className={`px-6 py-2 rounded-full shadow-md font-semibold transition-colors duration-200 ${
-                can("Resource Management", "write")
-                  ? "bg-[#166a45] text-white hover:bg-[#104631]"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              {t('save')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <UniversalModal
+      title={resource ? t("editResourceModal") : t("addResourceModal")}
+      isOpen={true}
+      onClose={onClose}
+    >
+      <UniversalForm
+        fields={formFields}
+        initialValues={initialValues}
+        onSubmit={handleSubmit}
+        onCancel={onClose}
+        submitText={t("save")}
+        cancelText={t("cancel")}
+        loading={loading}
+        error={error}
+        submitDisabled={!can("Resource Management", "write")}
+      />
+    </UniversalModal>
   );
 };
 

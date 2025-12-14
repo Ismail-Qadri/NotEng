@@ -105,12 +105,12 @@ const UserModal = ({
       const jwt = localStorage.getItem("userId");
       if (jwt) {
         const decodedNafathId = getNafathIdFromJWT(jwt);
-        console.log(
-          "[UserModal] Decoded nafathId from JWT (edit):",
-          decodedNafathId
-        );
+        // console.log(
+        //   "[UserModal] Decoded nafathId from JWT (edit):",
+        //   decodedNafathId
+        // );
       } else {
-        console.log("[UserModal] No JWT found in localStorage.");
+        // console.log("[UserModal] No JWT found in localStorage.");
       }
     }
 
@@ -233,7 +233,7 @@ const UserModal = ({
           }
         } catch (err) {
           setFetchError("Could not fetch users. Please try again later.");
-          console.error("Error fetching users:", err);
+          // console.error("Error fetching users:", err);
         }
       } else {
         setFetchError("");
@@ -284,65 +284,80 @@ const UserModal = ({
     let payload;
     let userId;
     try {
+      const jwt = localStorage.getItem("userId");
+
       if (isNewUser) {
         // Creating a new user
         payload = {
           nafath_id: formData.nafath_id,
           email: formData.email,
           phone_number: formData.phone_number,
-          // ...add other fields as needed
+          full_name_ar: formData.full_name_ar,
+          full_name_en: formData.full_name_en,
+          first_name_ar: formData.first_name_ar,
+          father_name_ar: formData.father_name_ar,
+          grand_name_ar: formData.grand_name_ar,
+          family_name_ar: formData.family_name_ar,
+          first_name_en: formData.first_name_en,
+          father_name_en: formData.father_name_en,
+          grand_name_en: formData.grand_name_en,
+          family_name_en: formData.family_name_en,
         };
         const userRes = await api.post(`/users`, payload);
         userId = userRes.data?.id;
       } else {
         // Editing an existing user
-        // Get JWT from localStorage
-        const jwt = localStorage.getItem("userId");
-        const decodedNafathId = getNafathIdFromJWT(jwt);
         userId = formData.id || user?.id;
-        // Send decoded nafathId in body, JWT in header
-        await api.put(
-          `/users/${userId}`,
-          {
-            email: formData.email,
-            phone_number: formData.phone_number,
-            // ...add other fields as needed
-          },
-          { headers: { "x-nafath-id": jwt } }
-        );
+        payload = {
+          email: formData.email,
+          phone_number: formData.phone_number,
+          full_name_ar: formData.full_name_ar,
+          full_name_en: formData.full_name_en,
+          first_name_ar: formData.first_name_ar,
+          father_name_ar: formData.father_name_ar,
+          grand_name_ar: formData.grand_name_ar,
+          family_name_ar: formData.family_name_ar,
+          first_name_en: formData.first_name_en,
+          father_name_en: formData.father_name_en,
+          grand_name_en: formData.grand_name_en,
+          family_name_en: formData.family_name_en,
+        };
+        console.log("Sent request payload:", payload);
+        let updateRes;
+        try {
+          updateRes = await api.put(`/users/${userId}`, payload, {
+            headers: { "x-nafath-id": jwt },
+          });
+          // console.log("Response from backend:", updateRes.data);
+        } catch (err) {
+          // console.log("Error response from backend:", err?.response?.data);
+          throw err;
+        }
       }
 
-      // Associate user with selected groups
+      // Assign user to groups with new API
       if (userId && Array.isArray(formData.groupIds)) {
-        for (const groupId of formData.groupIds) {
-          try {
-            await api.post(`/associations/groups/${groupId}/users`, { userId });
-          } catch (assocErr) {
-            console.error(
-              `Error associating user with group ${groupId}:`,
-              assocErr
-            );
-            alert(t("errorAssociatingGroup", { groupId }));
-          }
-        }
+        await api.put(`/associations/users/${userId}/groups`, {
+          groupIds: formData.groupIds,
+        });
       }
 
-      // Remove user from all groups
-      if (userId && Array.isArray(groups)) {
-        for (const group of groups) {
-          try {
-            await api.delete(
-              `/associations/groups/${group.id}/users/${userId}`
-            );
-          } catch (err) {
-            // Ignore errors for groups the user isn't in
-          }
-        }
+      let updatedUser;
+      try {
+        const res = await api.get(`/users/${userId}`);
+        updatedUser = res.data;
+      } catch (err) {
+        // console.error("Error fetching updated user:", err);
+        updatedUser = {
+          ...formData,
+          id: userId,
+          groups: groups.filter((g) => formData.groupIds.includes(g.id)),
+          roles: computeRolesFromGroups(formData.groupIds),
+        };
       }
-
 
       if (typeof onSave === "function") {
-        onSave({ ...formData, id: userId });
+        onSave(updatedUser);
       }
       onClose();
     } catch (err) {
@@ -353,8 +368,35 @@ const UserModal = ({
             err?.message ||
             t("apiErrorGeneric");
       alert(errorMessage);
-      console.error("Error saving user:", err);
+      // console.error("Error saving user:", err);
     }
+  };
+
+  // Helper function to compute roles from selected groups
+  const computeRolesFromGroups = (groupIds) => {
+    if (
+      !Array.isArray(groupIds) ||
+      !Array.isArray(groups) ||
+      !Array.isArray(roles)
+    )
+      return [];
+
+    const roleIds = new Set();
+    groupIds.forEach((id) => {
+      const group = groups.find((g) => g.id === id);
+      if (group) {
+        if (Array.isArray(group.roleIds)) {
+          group.roleIds.forEach((roleId) => roleIds.add(roleId));
+        }
+        if (Array.isArray(group.roles)) {
+          group.roles.forEach((role) => roleIds.add(role.id));
+        }
+      }
+    });
+
+    return Array.from(roleIds)
+      .map((roleId) => roles.find((r) => r.id === roleId))
+      .filter(Boolean);
   };
 
   const currentRoleNames = getRoleNamesForGroups(formData.groupIds || []);
@@ -432,221 +474,183 @@ const UserModal = ({
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="arFullName"
+                      htmlFor="full_name_ar"
                     >
                       {t("arabicFullName")}
                     </label>
                     <input
                       type="text"
-                      id="arFullName"
-                      name="arFullName"
-                      value={formData.arFullName}
+                      id="full_name_ar"
+                      name="full_name_ar"
+                      value={formData.full_name_ar}
                       onChange={handleChange}
-                      placeholder={formData.full_name_ar || t("arabicFullName")}
+                      placeholder={t("arabicFullName")}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                         language === "ar" ? "text-right" : ""
                       }`}
                       required
-                      readOnly
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="enFullName"
+                      htmlFor="full_name_en"
                     >
                       {t("englishFullName")}
                     </label>
                     <input
                       type="text"
-                      id="enFullName"
-                      name="enFullName"
-                      value={formData.enFullName}
+                      id="full_name_en"
+                      name="full_name_en"
+                      value={formData.full_name_en}
                       onChange={handleChange}
-                      placeholder={
-                        formData.full_name_en || t("englishFullName")
-                      }
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                        language === "ar" ? "text-right" : ""
-                      }`}
+                      placeholder={t("englishFullName")}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
                       required
-                      readOnly
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="arFirst"
+                      htmlFor="first_name_ar"
                     >
                       {t("arabicFirstName")}
                     </label>
                     <input
                       type="text"
-                      id="arFirst"
-                      name="arFirst"
-                      value={formData.arFirst}
+                      id="first_name_ar"
+                      name="first_name_ar"
+                      value={formData.first_name_ar}
                       onChange={handleChange}
-                      placeholder={
-                        formData.first_name_ar || t("arabicFirstName")
-                      }
+                      placeholder={t("arabicFirstName")}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                         language === "ar" ? "text-right" : ""
                       }`}
-                      readOnly
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="enFirst"
+                      htmlFor="first_name_en"
                     >
                       {t("englishFirstName")}
                     </label>
                     <input
                       type="text"
-                      id="enFirst"
-                      name="enFirst"
-                      value={formData.enFirst}
+                      id="first_name_en"
+                      name="first_name_en"
+                      value={formData.first_name_en}
                       onChange={handleChange}
-                      placeholder={
-                        formData.first_name_en || t("englishFirstName")
-                      }
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                        language === "ar" ? "text-right" : ""
-                      }`}
-                      readOnly
+                      placeholder={t("englishFirstName")}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="arFather"
+                      htmlFor="father_name_ar"
                     >
                       {t("arabicFatherName")}
                     </label>
                     <input
                       type="text"
-                      id="arFather"
-                      name="arFather"
-                      value={formData.arFather}
+                      id="father_name_ar"
+                      name="father_name_ar"
+                      value={formData.father_name_ar}
                       onChange={handleChange}
-                      placeholder={
-                        formData.father_name_ar || t("arabicFatherName")
-                      }
+                      placeholder={t("arabicFatherName")}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                         language === "ar" ? "text-right" : ""
                       }`}
-                      readOnly
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="enFather"
+                      htmlFor="father_name_en"
                     >
                       {t("englishFatherName")}
                     </label>
                     <input
                       type="text"
-                      id="enFather"
-                      name="enFather"
-                      value={formData.enFather}
+                      id="father_name_en"
+                      name="father_name_en"
+                      value={formData.father_name_en}
                       onChange={handleChange}
-                      placeholder={
-                        formData.father_name_en || t("englishFatherName")
-                      }
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                        language === "ar" ? "text-right" : ""
-                      }`}
-                      readOnly
+                      placeholder={t("englishFatherName")}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="arGrand"
+                      htmlFor="grand_name_ar"
                     >
                       {t("arabicGrandfatherName")}
                     </label>
                     <input
                       type="text"
-                      id="arGrand"
-                      name="arGrand"
-                      value={formData.arGrand}
+                      id="grand_name_ar"
+                      name="grand_name_ar"
+                      value={formData.grand_name_ar}
                       onChange={handleChange}
-                      placeholder={
-                        formData.grand_name_ar || t("arabicGrandfatherName")
-                      }
+                      placeholder={t("arabicGrandfatherName")}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                         language === "ar" ? "text-right" : ""
                       }`}
-                      readOnly
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="enGrand"
+                      htmlFor="grand_name_en"
                     >
                       {t("englishGrandfatherName")}
                     </label>
                     <input
                       type="text"
-                      id="enGrand"
-                      name="enGrand"
-                      value={formData.enGrand}
+                      id="grand_name_en"
+                      name="grand_name_en"
+                      value={formData.grand_name_en}
                       onChange={handleChange}
-                      placeholder={
-                        formData.grand_name_en || t("englishGrandfatherName")
-                      }
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                        language === "ar" ? "text-right" : ""
-                      }`}
-                      readOnly
+                      placeholder={t("englishGrandfatherName")}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="arFamily"
+                      htmlFor="family_name_ar"
                     >
                       {t("arabicFamilyName")}
                     </label>
                     <input
                       type="text"
-                      id="arFamily"
-                      name="arFamily"
-                      value={formData.arFamily}
+                      id="family_name_ar"
+                      name="family_name_ar"
+                      value={formData.family_name_ar}
                       onChange={handleChange}
-                      placeholder={
-                        formData.family_name_ar || t("arabicFamilyName")
-                      }
+                      placeholder={t("arabicFamilyName")}
                       className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                         language === "ar" ? "text-right" : ""
                       }`}
-                      readOnly
                     />
                   </div>
                   <div>
                     <label
                       className="block text-gray-700 font-semibold mb-2"
-                      htmlFor="enFamily"
+                      htmlFor="family_name_en"
                     >
                       {t("englishFamilyName")}
                     </label>
                     <input
                       type="text"
-                      id="enFamily"
-                      name="enFamily"
-                      value={formData.enFamily}
+                      id="family_name_en"
+                      name="family_name_en"
+                      value={formData.family_name_en}
                       onChange={handleChange}
-                      placeholder={
-                        formData.family_name_en || t("englishFamilyName")
-                      }
-                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                        language === "ar" ? "text-right" : ""
-                      }`}
-                      readOnly
+                      placeholder={t("englishFamilyName")}
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500`}
                     />
                   </div>
                 </div>

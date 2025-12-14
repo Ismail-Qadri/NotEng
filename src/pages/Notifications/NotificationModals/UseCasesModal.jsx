@@ -3,23 +3,20 @@ import { Tag } from "antd";
 import { LayoutGrid } from "lucide-react";
 import {
   Card,
-  PageHeader,
   Table,
   UniversalForm,
   UniversalModal,
+  PageHeader,
 } from "../../../components/common";
 import { useCRUD } from "../../../hooks/useCRUD";
 import { ConfirmModal } from "../../../components/common";
 import useLanguage from "../../../hooks/useLanguage";
-import IconButton from "../../../components/common/IconButton";
-import { Edit, Trash2 } from "lucide-react";
 
-const UseCases = ({ can }) => {
+const UseCasesModal = ({ can }) => {
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUseCase, setEditingUseCase] = useState(null);
   const [formError, setFormError] = useState("");
-
   const {
     data: useCases,
     loading,
@@ -38,57 +35,10 @@ const UseCases = ({ can }) => {
       title: t("status"),
       dataIndex: "active",
       key: "active",
-      render: (active) =>
-        active ? (
-          <Tag
-            style={{
-              background: "#d1fae5",
-              color: "#166a45",
-              border: "none",
-              fontWeight: 500,
-              padding: "4px 16px",
-              borderRadius: "12px",
-            }}
-          >
-            {t("active")}
-          </Tag>
-        ) : (
-          <Tag
-            style={{
-              background: "#f3f4f6",
-              color: "#222",
-              border: "none",
-              fontWeight: 500,
-              padding: "4px 16px",
-              borderRadius: "12px",
-            }}
-          >
-            {t("inactive")}
-          </Tag>
-        ),
-    },
-    {
-      title: t("actions"),
-      key: "actions",
-      render: (_, useCase) => (
-        <>
-          <IconButton
-            onClick={() => handleEdit(useCase)}
-            disabled={!can("UseCase Management", "write")}
-            className="text-teal-600 hover:text-teal-900 me-2"
-            title={t("edit")}
-          >
-            <Edit size={18} />
-          </IconButton>
-          <IconButton
-            onClick={() => handleDelete(useCase)}
-            disabled={!can("UseCase Management", "delete")}
-            className="text-red-600 hover:text-red-900"
-            title={t("delete")}
-          >
-            <Trash2 size={18} />
-          </IconButton>
-        </>
+      render: (active) => (
+        <Tag color={active ? "green" : "default"}>
+          {active ? t("active") : t("inactive")}
+        </Tag>
       ),
     },
   ];
@@ -115,10 +65,14 @@ const UseCases = ({ can }) => {
   const handleSubmit = async (values) => {
     setFormError("");
     try {
+      const payload = {
+        ...values,
+        active: !!values.active,
+      };
       if (editingUseCase) {
-        await update(editingUseCase.id, values);
+        await update(editingUseCase.id, payload);
       } else {
-        await create(values);
+        await create(payload);
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -163,7 +117,15 @@ const UseCases = ({ can }) => {
         canAdd={can("UseCase Management", "write")}
       />
 
-      <Table columns={columns} dataSource={useCases} loading={loading} />
+      <Table
+        columns={columns}
+        dataSource={useCases}
+        loading={loading}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        canEdit={can("UseCase Management", "write")}
+        canDelete={can("UseCase Management", "delete")}
+      />
 
       <UniversalModal
         title={editingUseCase ? t("editUseCaseModal") : t("addUseCaseModal")}
@@ -185,4 +147,4 @@ const UseCases = ({ can }) => {
   );
 };
 
-export default UseCases;
+export default UseCasesModal;

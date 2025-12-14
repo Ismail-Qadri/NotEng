@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, Shield, Bell, LayoutDashboard } from "lucide-react";
 import useLanguage from "../hooks/useLanguage";
-import nav_logo from '../assets/MOMAH_LOGO.svg';
+import nav_logo from "/assets/MOMAH_LOGO.svg";
+import { Button } from "../components/common";
 
 const Navbar = () => {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const btnRef = useRef(null);
   const langBtnRef = useRef(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeLink, setActiveLink] = useState(location.pathname);
 
   useEffect(() => {
@@ -21,8 +24,8 @@ const Navbar = () => {
       if (
         menuRef.current &&
         !menuRef.current.contains(e.target) &&
-        !btnRef.current.contains(e.target) &&
-        !langBtnRef.current.contains(e.target)
+        !btnRef.current?.contains(e.target) &&
+        !langBtnRef.current?.contains(e.target)
       ) {
         setIsMenuOpen(false);
       }
@@ -32,6 +35,24 @@ const Navbar = () => {
   }, []);
 
   const isArabic = language === "ar";
+
+  const menuItems = [
+    {
+      path: "/permissions",
+      label: isArabic ? "إدارة الصلاحيات" : "Managing Permissions",
+      icon: <Shield size={18} />,
+    },
+    {
+      path: "/notifications",
+      label: isArabic ? "إدارة الإشعارات" : "Managing Notifications",
+      icon: <Bell size={18} />,
+    },
+    {
+      path: "/",
+      label: isArabic ? "لوحات المؤشرات" : "Dashboard",
+      icon: <LayoutDashboard size={18} />,
+    },
+  ];
 
   return (
     <>
@@ -49,20 +70,9 @@ const Navbar = () => {
               e.stopPropagation();
               setIsMenuOpen((prev) => !prev);
             }}
-            className="menuButton--default flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer relative bg-[rgba(64,126,201,0.1)] text-[#407ec9] hover:border hover:border-[#407ec9]"
+            className="flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer relative bg-[rgba(64,126,201,0.1)] text-[#407ec9] hover:border hover:border-[#407ec9] transition-all"
           >
-            <span
-              className="block w-[18px] h-[2px] bg-current absolute left-1/2 top-1/2 rounded-sm"
-              style={{ transform: "translate(-50%,-50%) translateY(-6px)" }}
-            ></span>
-            <span
-              className="block w-[18px] h-[2px] bg-current absolute left-1/2 top-1/2 rounded-sm"
-              style={{ transform: "translate(-50%,-50%)" }}
-            ></span>
-            <span
-              className="block w-[18px] h-[2px] bg-current absolute left-1/2 top-1/2 rounded-sm"
-              style={{ transform: "translate(-50%,-50%) translateY(6px)" }}
-            ></span>
+            <Menu size={20} />
           </button>
 
           <button
@@ -91,76 +101,63 @@ const Navbar = () => {
       {/* Side Menu */}
       <div
         ref={menuRef}
-        className={`fixed top-0 h-full w-4/5 w-[80%] max-w-[300px] bg-white shadow-lg transform transition-transform duration-300 z-[9999] flex flex-col p-5 
-          ${isArabic
-            ? isMenuOpen
-              ? "right-0"
+        className={`fixed top-0 h-full w-4/5 max-w-[300px] bg-white shadow-2xl transform transition-transform duration-300 z-[9999] flex flex-col p-5 
+          ${
+            isArabic
+              ? isMenuOpen
+                ? "right-0"
+                : "-right-full"
+              : isMenuOpen
+              ? "left-0"
               : "-left-full"
-            : isMenuOpen
-            ? "left-0"
-            : "-right-full"
           }
         `}
       >
         <div className="flex justify-between items-center mb-5">
-          <span className="text-lg font-bold text-gray-600">
-            {isArabic ? "القائمة" : "List"}
+          <span className="text-lg font-bold text-gray-700">
+            {isArabic ? "القائمة" : "Menu"}
           </span>
           <button
             onClick={() => setIsMenuOpen(false)}
-            className="bg-gray-100 border-none rounded-lg w-9 h-9 text-lg cursor-pointer text-[#407EC9] flex items-center justify-center"
+            className="bg-gray-100 border-none rounded-lg w-9 h-9 text-lg cursor-pointer text-[#407EC9] flex items-center justify-center hover:bg-gray-200 transition-colors"
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
-        <hr className="border-gray-200" />
+        <hr className="border-gray-200 mb-5" />
 
         {/* Links */}
-        <div className="mt-5 grid gap-4">
-          <Link
-            to="/permissions"
-            onClick={() => {
-              setActiveLink("/permissions");
-              setIsMenuOpen(false);
-            }}
-            className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
-              ${activeLink === "/permissions" ? "bg-green-200 text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
-            `}
-          >
-            <span className="font-semibold text-[14px]">
-              {isArabic ? "إدارة الصلاحيات" : "Managing Permissions"}
-            </span>
-          </Link>
-          <Link
-            to="/notifications"
-            onClick={() => {
-              setActiveLink("/notifications");
-              setIsMenuOpen(false);
-            }}
-            className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100 
-              ${activeLink === "/notifications" ? "bg-green-200 text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
-            `}
-          >
-            <span className="font-semibold text-[14px]">
-              {isArabic ? "إدارة الإشعارات" : "Managing Notifications"}
-            </span>
-          </Link>
-          <Link
-            to="/"
-            onClick={() => {
-              setActiveLink("/");
-              setIsMenuOpen(false);
-            }}
-            className={`flex items-center gap-3 p-3 rounded-xl transition-colors shadow-sm border border-gray-100
-              ${activeLink === "/" ? "bg-green-200 text-teal-600" : "bg-gray-50 hover:bg-teal-50"}
-            `}
-          >
-            <span className="font-semibold text-[14px]">
-              {isArabic ? "لوحات المؤشرات" : "Dashboard"}
-            </span>
-          </Link>
+        <div className="flex flex-col gap-3">
+          {menuItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => {
+                setActiveLink(item.path);
+                setIsMenuOpen(false);
+              }}
+              className={`flex items-center gap-3 p-3 rounded-xl transition-all shadow-sm border border-gray-100
+                ${
+                  activeLink === item.path
+                    ? "bg-[#166a45] text-white shadow-md"
+                    : "bg-gray-50 hover:bg-teal-50 text-gray-700"
+                }
+              `}
+            >
+              {item.icon}
+              <span className="font-semibold text-[14px]">{item.label}</span>
+            </Link>
+          ))}
         </div>
       </div>
+
+      {/* Overlay */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-30 z-[9998]"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
     </>
   );
 };

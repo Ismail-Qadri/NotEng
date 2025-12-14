@@ -1,188 +1,181 @@
-import React, { useState, useEffect } from "react";
-import DimensionsModal from "../NotificationModals/DimensionsModal";
-import { Plus, Edit, Trash2, LayoutGrid } from "lucide-react";
+import React, { useState } from "react";
+import { Grid3x3 } from "lucide-react";
+import {
+  Card,
+  PageHeader,
+  Table,
+  UniversalModal,
+  UniversalForm,
+} from "../../../components/common";
+import { useCRUD } from "../../../hooks/useCRUD";
+import { ConfirmModal } from "../../../components/common";
 import useLanguage from "../../../hooks/useLanguage";
-import api from "../../../api"; 
-
-const Modal = ({ open, onClose, children }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold"
-        >
-          ×
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-};
+import IconButton from "../../../components/common/IconButton";
+import { Edit, Trash2 } from "lucide-react";
 
 const Dimensions = ({ can }) => {
-  // Define safeCan
-  const safeCan = typeof can === "function" ? can : () => false;
-
-  const [dimensions, setDimensions] = useState([]);
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [editingDimension, setEditingDimension] = useState(null);
   const { t } = useLanguage();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDimension, setEditingDimension] = useState(null);
+  const [formError, setFormError] = useState("");
 
-  useEffect(() => {
-    //  Use api instance with relative URL
-    api.get("/dimensions")
-      .then(res => {
-        setDimensions(res.data);
-      })
-      .catch(err => {
-        console.error("Failed to fetch dimensions", err);
-      });
-  }, []);
+  const {
+    data: dimensions,
+    loading,
+    create,
+    update,
+    remove,
+  } = useCRUD("/dimensions");
 
-  const handleSaveDimension = async (newDimension) => {
+  const columns = [
+    {
+      title: t("dimensionName"),
+      dataIndex: "label",
+      key: "label",
+    },
+    {
+      title: t("columnName"),
+      dataIndex: "columnName",
+      key: "columnName",
+    },
+    {
+      title: t("sqlQuery"),
+      dataIndex: "valuesSql",
+      key: "valuesSql",
+      ellipsis: true,
+    },
+    {
+      title: t("actions"),
+      key: "actions",
+      render: (_, dimension) => (
+        <>
+          <IconButton
+            onClick={() => handleEdit(dimension)}
+            disabled={!can("Dimensions Management", "write")}
+            className="text-teal-600 hover:text-teal-900 me-2"
+            title={t("edit")}
+          >
+            <Edit size={18} />
+          </IconButton>
+          <IconButton
+            onClick={() => handleDelete(dimension)}
+            disabled={!can("Dimensions Management", "delete")}
+            className="text-red-600 hover:text-red-900"
+            title={t("delete")}
+          >
+            <Trash2 size={18} />
+          </IconButton>
+        </>
+      ),
+    },
+  ];
+
+  const handleAdd = () => {
+    setEditingDimension(null);
+    setIsModalOpen(true);
+    setFormError("");
+  };
+
+  const handleEdit = (dimension) => {
+    setEditingDimension(dimension);
+    setIsModalOpen(true);
+    setFormError("");
+  };
+
+  const handleDelete = (dimension) => {
+    ConfirmModal({
+      title: t("deleteEntityConfirm", { entity: t("dimension") }),
+      onConfirm: () => remove(dimension.id),
+    });
+  };
+
+  const handleSubmit = async (values) => {
+    setFormError("");
     try {
       if (editingDimension) {
-        //  Use api instance for PUT
-        const response = await api.put(
-          `/dimensions/${editingDimension.id}`,
-          newDimension
-        );
-        const updatedDimension = response.data;
-        setDimensions((prev) =>
-          prev.map((d) => (d.id === editingDimension.id ? updatedDimension : d))
-        );
-        setEditingDimension(null);
+        await update(editingDimension.id, values);
       } else {
-        //  Use api instance for POST
-        const response = await api.post("/dimensions", newDimension);
-        const createdDimension = response.data;
-        setDimensions((prev) => [...prev, createdDimension]);
+        await create(values);
       }
-      setIsFormVisible(false);
-      
-      //  Refresh dimensions list
-      const res = await api.get("/dimensions");
-      setDimensions(res.data);
-    } catch (err) {
-      console.error("Failed to save dimension", err);
-      alert("Failed to save dimension. Please try again.");
+      setIsModalOpen(false);
+    } catch (error) {
+      setFormError("Error saving dimension");
     }
   };
 
-  const handleEditDimension = (dimensionId) => {
-    const dimensionToEdit = dimensions.find((d) => d.id === dimensionId);
-    setEditingDimension(dimensionToEdit);
-    setIsFormVisible(true);
-  };
+  const formFields = [
+    {
+      name: "label",
+      label: t("dimensionName"),
+      type: "input",
+      required: true,
+      errorMsg: t("dimensionNameRequired"),
+      placeholder: t("enterDimensionName"),
+    },
+    {
+      name: "columnName",
+      label: t("columnName"),
+      type: "input",
+      required: true,
+      errorMsg: t("columnNameRequired"),
+      placeholder: "e.g., user_id, department, region",
+    },
+    {
+      name: "valuesSql",
+      label: t("sqlQuery"),
+      type: "textarea",
+      required: true,
+      errorMsg: t("sqlQueryRequired"),
+      placeholder:
+        t("sqlQueryPlaceholder") ||
+        "SELECT DISTINCT column_name FROM table_name ORDER BY column_name",
+      rows: 4,
+    },
+  ];
 
-  const handleDeleteDimension = async (dimensionId) => {
-    try {
-      //  Use api instance for DELETE
-      await api.delete(`/dimensions/${dimensionId}`);
-      setDimensions(dimensions.filter((d) => d.id !== dimensionId));
-    } catch (err) {
-      console.error("Failed to delete dimension", err);
-      alert("Failed to delete dimension. Please try again.");
-    }
-  };
+  const initialValues = editingDimension
+    ? {
+        label: editingDimension.label || "",
+        columnName: editingDimension.columnName || "",
+        valuesSql: editingDimension.valuesSql || "",
+      }
+    : {
+        label: "",
+        columnName: "",
+        valuesSql: "",
+      };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-700 flex items-center">
-          <LayoutGrid size={20} className="me-2" /> {t("allDimensions")}
-        </h2>
-        {safeCan("Dimensions Management", "write") && (
-          <button
-            onClick={() => {
-              setEditingDimension(null);
-              setIsFormVisible(true);
-            }}
-            className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full"
-          >
-            <Plus size={16} className="me-2" /> {t("addNewDimension")}
-          </button>
-        )}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("dimensionName")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("columnName")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("sqlQuery")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("actions")}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {dimensions.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                  {t("noDimensionsMessage")}
-                </td>
-              </tr>
-            )}
-            {dimensions.map((d) => (
-              <tr key={d.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {d.label}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {d.columnName}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {d.valuesSql}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {safeCan("Dimensions Management", "write") ? (
-                    <button
-                      onClick={() => handleEditDimension(d.id)}
-                      className="text-teal-600 hover:text-teal-900 me-4"
-                    >
-                      <Edit size={18} />
-                    </button>
-                  ) : (
-                    <button disabled className="opacity-50 cursor-not-allowed me-4">
-                      <Edit size={18} />
-                    </button>
-                  )}
-                  
-                  {safeCan("Dimensions Management", "delete") ? (
-                    <button
-                      onClick={() => handleDeleteDimension(d.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  ) : (
-                    <button disabled className="opacity-50 cursor-not-allowed">
-                      <Trash2 size={18} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <Modal open={isFormVisible} onClose={() => setIsFormVisible(false)}>
-        <DimensionsModal
-          onSave={handleSaveDimension}
-          dimension={editingDimension}
-          onCancel={() => setIsFormVisible(false)}
+    <Card>
+      <PageHeader
+        title={t("allDimensions")}
+        icon={<Grid3x3 size={20} />}
+        onAdd={handleAdd}
+        addButtonText={t("addNewDimension")}
+        canAdd={can("Dimensions Management", "write")}
+      />
+
+      <Table columns={columns} dataSource={dimensions} loading={loading} />
+
+      <UniversalModal
+        title={
+          editingDimension ? t("editDimensionModal") : t("addDimensionModal")
+        }
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      >
+        <UniversalForm
+          fields={formFields}
+          initialValues={initialValues}
+          onSubmit={handleSubmit}
+          onCancel={() => setIsModalOpen(false)}
+          submitText={t("save")}
+          cancelText={t("cancel")}
+          loading={loading}
+          error={formError}
         />
-      </Modal>
-    </div>
+      </UniversalModal>
+    </Card>
   );
 };
 

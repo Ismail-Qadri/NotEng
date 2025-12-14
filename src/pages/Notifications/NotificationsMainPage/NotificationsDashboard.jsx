@@ -4,66 +4,69 @@ import UseCases from "./UseCases";
 import Metrics from "./Metrics";
 import Dimensions from "./Dimensions";
 import Template from "./Template";
+import History from "./History";
 import Navbar from "../../Navbar";
-
+import { Card, PageHeader } from "../../../components/common";
 import {
   Bell,
   ListChecks,
   BarChart2,
   LayoutGrid,
   FileText,
+  History as HistoryIcon,
 } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
-import History from "./History";
 
 const NotificationsDashboard = ({ can }) => {
   const { language, t } = useLanguage();
-
-  // Always use a safe can function
   const safeCan = typeof can === "function" ? can : () => false;
 
   const TABS = [
     {
       key: "rules",
       label: t("rules"),
-      icon: <ListChecks size={18} className="me-2" />,
+      icon: ListChecks,
       resource: "Rule Management",
+      component: Rules,
     },
     {
       key: "usecases",
       label: t("useCases"),
-      icon: <LayoutGrid size={18} className="me-2" />,
+      icon: LayoutGrid,
       resource: "UseCase Management",
+      component: UseCases,
     },
     {
       key: "metrics",
       label: t("metrics"),
-      icon: <BarChart2 size={18} className="me-2" />,
+      icon: BarChart2,
       resource: "Metrics Management",
+      component: Metrics,
     },
     {
       key: "dimensions",
       label: t("dimensions"),
-      icon: <LayoutGrid size={18} className="me-2" />,
+      icon: LayoutGrid,
       resource: "Dimensions Management",
+      component: Dimensions,
     },
     {
       key: "templates",
       label: t("templates"),
-      icon: <FileText size={18} className="me-2" />,
+      icon: FileText,
       resource: "Template Management",
+      component: Template,
     },
     {
       key: "history",
       label: t("history") || "History",
-      icon: <Bell size={18} className="me-2" />,
+      icon: HistoryIcon,
       resource: "Rule Management",
+      component: History,
     },
   ];
 
   const visibleTabs = TABS.filter((tab) => safeCan(tab.resource, "read"));
-
-  // Set the first visible tab as active by default
   const [activeTab, setActiveTab] = useState(
     visibleTabs.length > 0 ? visibleTabs[0].key : null
   );
@@ -76,26 +79,29 @@ const NotificationsDashboard = ({ can }) => {
     }
   }, [visibleTabs, activeTab]);
 
+  // No permissions view
   if (visibleTabs.length === 0) {
     return (
       <>
         <Navbar />
         <div className="relative z-10">
-          <div className="bg-gray-100 p-8 pb-12 font-sans antialiased m-36 rounded-2xl shadow-xl">
+          <div
+            className="bg-gray-100 p-8 pb-12 font-sans antialiased m-36 rounded-2xl shadow-xl"
+            dir={language === "ar" ? "rtl" : "ltr"}
+          >
             <div className="max-w-6xl mx-auto mt-4">
-              <div>
-                <div dir={language === "ar" ? "rtl" : "ltr"}>
-                  <h1 className="text-3xl font-bold text-gray-800 flex items-center p-5">
-                    <Bell className="me-2" size={28} />{" "}
-                    {t("notificationsManagement")}
-                  </h1>
-                </div>
-                <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-                  <div className="text-4xl mb-2">🚫</div>
-                  <p className="text-gray-600">
+              <PageHeader
+                title={t("notificationsManagement")}
+                icon={<Bell size={28} />}
+              />
+              <Card>
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🚫</div>
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
                     {t("noNotificationPermissions") ||
-                      "You do not have permissions to manage notifications."}
-                    <br />
+                      "No Notification Permissions"}
+                  </h3>
+                  <p className="text-gray-600 max-w-md mx-auto">
                     {t("noPermissionsAssignedMessage") ||
                       "No roles or permissions are assigned to your account."}
                     <br />
@@ -103,13 +109,17 @@ const NotificationsDashboard = ({ can }) => {
                       "Please contact your administrator."}
                   </p>
                 </div>
-              </div>
+              </Card>
             </div>
           </div>
         </div>
       </>
     );
   }
+
+  const ActiveComponent = visibleTabs.find(
+    (tab) => tab.key === activeTab
+  )?.component;
 
   return (
     <>
@@ -120,58 +130,46 @@ const NotificationsDashboard = ({ can }) => {
           dir={language === "ar" ? "rtl" : "ltr"}
         >
           <div className="max-w-6xl mx-auto mt-4">
-            <header className="flex justify-between items-center mb-12">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                  <Bell className="me-2" size={28} />{" "}
-                  {t("notificationsManagement")}
-                </h1>
-              </div>
+            <header className="flex justify-between items-center mb-6">
+              <h1 className="text-3xl font-bold text-gray-800 flex items-center">
+                <Bell className="me-2" size={32} />
+                {t("notificationsManagement")}
+              </h1>
+
+              {/* Tab Navigation */}
               <nav
                 className={`flex items-center p-1 bg-white rounded-full shadow-lg
-                ${language === "ar" ? "flex-row space-x-reverse space-x-2" : "flex-row space-x-2"}
+                ${
+                  language === "ar"
+                    ? "flex-row space-x-reverse space-x-2"
+                    : "flex-row space-x-2"
+                }
               `}
               >
-                {visibleTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
-                      activeTab === tab.key
-                        ? "bg-[#166a45] text-white"
-                        : "text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {tab.icon} {tab.label}
-                  </button>
-                ))}
+                {visibleTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`flex items-center px-4 py-2 rounded-full font-semibold transition-colors duration-200 whitespace-nowrap ${
+                        activeTab === tab.key
+                          ? "bg-[#166a45] text-white"
+                          : "text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      <Icon size={18} className="me-2" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </nav>
             </header>
-          </div>
-          {/* Tab content */}
-          <div>
-            {activeTab === "rules" && safeCan("Rule Management", "read") && (
-              <Rules can={safeCan} />
-            )}
-            {activeTab === "usecases" &&
-              safeCan("UseCase Management", "read") && (
-                <UseCases can={safeCan} />
-              )}
-            {activeTab === "metrics" &&
-              safeCan("Metrics Management", "read") && (
-                <Metrics can={safeCan} />
-              )}
-            {activeTab === "dimensions" &&
-              safeCan("Dimensions Management", "read") && (
-                <Dimensions can={safeCan} />
-              )}
-            {activeTab === "templates" &&
-              safeCan("Template Management", "read") && (
-                <Template can={safeCan} />
-              )}
-            {activeTab === "history" && safeCan("Rule Management", "read") && (
-              <History can={safeCan} />
-            )}
+
+            {/* Active Tab Content */}
+            <div className="mt-6">
+              {ActiveComponent && <ActiveComponent can={safeCan} />}
+            </div>
           </div>
         </div>
       </div>

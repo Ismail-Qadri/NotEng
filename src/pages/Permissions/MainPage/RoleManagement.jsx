@@ -1,205 +1,227 @@
-import React , { useState} from "react";
+import React, { useState } from "react";
+import { Tag } from "antd";
+import { Shield } from "lucide-react";
 import {
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Pencil,
-  Trash2 as TrashIcon,
-  PlusCircle,
-} from "lucide-react";
+  Card,
+  PageHeader,
+  Table,
+  UniversalForm,
+  UniversalModal,
+} from "../../../components/common";
+import { useCRUD } from "../../../hooks/useCRUD";
+import { ConfirmModal } from "../../../components/common";
 import useLanguage from "../../../hooks/useLanguage";
-import ConfirmDeleteModal from '../ConfirmDeleteModal';
-import api from "../../../api"; 
-
-const permissionIcons = {
-  read: Eye,
-  write: Pencil,
-  delete: TrashIcon,
-  create: PlusCircle,
-};
+import RoleModal from "../Modals/RoleModal";
 
 const RoleManagement = ({
-  roles,
-  resources,
   permissions,
-  onEdit,
-  onAdd,
-  onDelete,
   can,
+  resources,
+  groups,
+  refreshGroups,
 }) => {
-   const { language, t } = useLanguage();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [roleToDelete, setRoleToDelete] = useState(null);
-  const [deleteError, setDeleteError] = useState("");
+  const { t } = useLanguage();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState(null);
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleDeleteClick = (role) => {
-    setRoleToDelete(role);
-    setDeleteError("");
-    setConfirmOpen(true);
+  const {
+    data: roles,
+    loading: tableLoading,
+    create,
+    update,
+    remove,
+    refresh,
+  } = useCRUD("/roles");
+
+  const columns = [
+    {
+      title: t("roleName"),
+      dataIndex: "name",
+      key: "name",
+      sorter: (a, b) => (a.name || "").localeCompare(b.name || ""),
+    },
+    {
+      title: t("permissions"),
+      dataIndex: "policies",
+      key: "permissions",
+      sorter: (a, b) => {
+        // Sort by number of permissions (as an example)
+        const aCount = a.policies ? a.policies.length : 0;
+        const bCount = b.policies ? b.policies.length : 0;
+        return aCount - bCount;
+      },
+      render: (policies) => {
+        if (!policies || policies.length === 0) {
+          return <span className="text-gray-400">No permissions</span>;
+        }
+        const uniquePermissionIds = [
+          ...new Set(
+            policies.map((policy) => {
+              const match = String(policy[2]).match(/permission::(\d+)/);
+              return match ? match[1] : policy[2];
+            })
+          ),
+        ];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {uniquePermissionIds.map((permId) => {
+              const permObj = permissions?.find(
+                (p) => String(p.id) === String(permId)
+              );
+              const permName = permObj ? permObj.name : permId;
+              return (
+                <Tag key={permId} color="cyan">
+                  {permName}
+                </Tag>
+              );
+            })}
+          </div>
+        );
+      },
+    },
+  ];
+
+  const handleAdd = () => {
+    setEditingRole(null);
+    setIsModalOpen(true);
+    setFormError("");
   };
 
-  // Use api instance for delete if onDelete is not provided
-  const handleConfirmDelete = async () => {
-    setDeleteError("");
-    if (!roleToDelete) return;
-    try {
-      if (onDelete) {
-        await onDelete(roleToDelete.id);
-      } else {
-        await api.delete(`/roles/${roleToDelete.id}`); 
-      }
-      setConfirmOpen(false);
-      setRoleToDelete(null);
-    } catch (err) {
-      const apiData = err?.response?.data || {};
-      let errorMessage = "";
-      if (language === "ar" && apiData.errorMessage_AR) {
-        errorMessage = apiData.errorMessage_AR;
-      } else if (language === "en" && apiData.errorMessage_EN) {
-        errorMessage = apiData.errorMessage_EN;
-      } else {
-        errorMessage =
-          apiData.error ||
-          apiData.message ||
-          err?.message ||
-          t('apiErrorGeneric');
-      }
-      setDeleteError(errorMessage);
+  const handleEdit = (role) => {
+    setEditingRole(role);
+    setIsModalOpen(true);
+    setFormError("");
+  };
+
+  const handleDelete = (role) => {
+    if (role.policies && role.policies.length > 0) {
+      ConfirmModal({
+        title: t("cannotDeleteRole"),
+        content: t("roleHasPermissionsShort"),
+        okText: t("ok"),
+        cancelText: t("cancel"),
+      });
+      return;
     }
-  };
 
-  const handleCancelDelete = () => {
-    setConfirmOpen(false);
-    setRoleToDelete(null);
-    setDeleteError("");
-  };
-
-  const getUniquePermissionNames = (role, permissions) => {
-    if (!role.policies || role.policies.length === 0) {
-      return <span className="text-gray-400">No permissions</span>;
-    }
-    // Extract permission IDs from "permission::1"
-    const uniquePermissionIds = [
-      ...new Set(
-        role.policies.map((policy) => {
-          const match = String(policy[2]).match(/permission::(\d+)/);
-          return match ? match[1] : policy[2];
-        })
-      ),
-    ];
-
-    // Map IDs to permission names
-    return uniquePermissionIds.map((permId) => {
-      const permObj = permissions.find((p) => String(p.id) === String(permId));
-      const permName = permObj ? permObj.name : permId;
-      return (
-        <span
-          key={permId}
-          className="inline-flex items-center px-2 py-1 mr-2 my-1 bg-white text text-base"
-          title={permName}
-        >
-          {permName}
-        </span>
-      );
+    ConfirmModal({
+      title: t("deleteEntityConfirm", { entity: t("role") }),
+      content: `${t("confirmDeleteRole")} "${role.name}"?`,
+      okText: t("confirm"),
+      cancelText: t("cancel"),
+      onConfirm: async () => {
+        await remove(role.id);
+        if (typeof refreshGroups === "function") await refreshGroups();
+        await refresh();
+      },
     });
   };
 
-  return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-700">{t("allRoles")}</h2>
-        {can("Role Management", "write") && (
-          <button
-            onClick={onAdd}
-            className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full"
-          >
-            <Plus size={16} className="me-2" /> {t("addRole")}
-          </button>
-        )}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("roleName")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("permissions")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("actions")}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {roles && roles.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                  No roles found
-                </td>
-              </tr>
-            )}
-            {roles &&
-              roles.map((role) => (
-                <tr key={role.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {role.name}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {getUniquePermissionNames(role, permissions)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {can("Role Management", "write") ? (
-                      <button
-                        onClick={() => onEdit(role)}
-                        className="text-teal-600 hover:text-teal-900 me-4"
-                      >
-                        <Edit size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        disabled
-                        className="opacity-50 cursor-not-allowed me-4"
-                      >
-                        <Edit size={18} />
-                      </button>
-                    )}
+  const handleSubmit = async (values) => {
+    setLoading(true);
+    setFormError("");
+    try {
+      if (editingRole) {
+        await update(editingRole.id, values);
+      } else {
+        await create(values);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      setFormError("Error saving role");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                    {can("Role Management", "delete") ? (
-                      <button
-                        onClick={() => handleDeleteClick(role)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        disabled
-                        className="opacity-50 cursor-not-allowed"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-     <ConfirmDeleteModal
-        open={confirmOpen}
-        message={t('deleteEntityConfirm', { entity: t('role') })}
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-        error={deleteError}
+  const formFields = [
+    {
+      name: "name",
+      label: t("roleName"),
+      placeholder: t("roleNamePlaceholder"),
+      required: true,
+      errorMsg: "Please enter role name",
+      type: "input",
+    },
+    {
+      name: "description",
+      label: t("description"),
+      type: "textarea",
+      placeholder: t("descriptionPlaceholder"),
+    },
+    {
+      name: "permissionIds",
+      label: t("permissions"),
+      type: "select",
+      mode: "multiple",
+      options: permissions?.map((p) => ({ label: p.name, value: p.id })) || [],
+      placeholder: t("notificationsSelect"),
+      required: true,
+      errorMsg: "Please select at least one permission",
+    },
+  ];
+
+  // Initial values for edit
+  const initialValues = editingRole
+    ? {
+        name: editingRole.name || "",
+        description: editingRole.description || "",
+        permissionIds:
+          editingRole.policies
+            ?.map((policy) => {
+              const match = String(policy[2]).match(/permission::(\d+)/);
+              return match ? Number(match[1]) : null;
+            })
+            .filter(Boolean) || [],
+      }
+    : {};
+
+  return (
+    <Card>
+      <PageHeader
+        title={t("allRoles")}
+        icon={<Shield size={20} />}
+        onAdd={handleAdd}
+        addButtonText={t("addRole")}
+        canAdd={can("Role Management", "write")}
       />
-    </div>
+
+      <Table
+        columns={columns}
+        dataSource={roles}
+        loading={tableLoading}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        canEdit={can("Role Management", "write")}
+        canDelete={can("Role Management", "delete")}
+      />
+
+      {isModalOpen && (
+        <UniversalModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={editingRole ? t("editRoleModal") : t("addRoleModal")}
+          maxWidth="max-w-2xl"
+          maxHeight="max-h-[75vh]"
+        >
+          <RoleModal
+            resources={resources}
+            permissions={permissions}
+            role={editingRole}
+            onClose={() => setIsModalOpen(false)}
+            onSave={async () => {
+              await refresh();
+              if (typeof refreshGroups === "function") await refreshGroups();
+              setIsModalOpen(false);
+            }}
+            can={can}
+          />
+        </UniversalModal>
+      )}
+    </Card>
   );
 };
 
 export default RoleManagement;
-
-
-

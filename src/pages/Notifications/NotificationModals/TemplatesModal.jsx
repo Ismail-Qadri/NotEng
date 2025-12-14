@@ -1,221 +1,275 @@
-import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Tag } from "antd";
+import { FileText } from "lucide-react";
+
+import {
+  Card,
+  Table,
+  UniversalForm,
+  UniversalModal,
+  PageHeader,
+} from "../../../components/common";
+
+import { ConfirmModal } from "../../../components/common";
+import { useCRUD } from "../../../hooks/useCRUD";
 import useLanguage from "../../../hooks/useLanguage";
 import api from "../../../api";
 
-const TemplatesModal = ({ onSave, template, onCancel }) => {
-  const { t } = useLanguage();
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [channelId, setChannelId] = useState("");
+const TemplatesModal = ({ can }) => {
+  const { t, language: currentLanguage } = useLanguage();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
   const [channels, setChannels] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [errors, setErrors] = useState({});
+  const [selectedChannelId, setSelectedChannelId] = useState(null);
+  const [formKey, setFormKey] = useState(0); // Add this to force form re-render
+
+  const {
+    data: templates,
+    loading,
+    create,
+    update,
+    remove,
+  } = useCRUD("/notification-templates");
 
   useEffect(() => {
     api
       .get("/channels")
-      .then((res) => {
-        setChannels(Array.isArray(res.data) ? res.data : []);
-      })
-      .catch((err) => {
-        if (import.meta.env.DEV)
-          console.error("Failed to fetch channels:", err);
-        setError(t("failedToLoadChannels") || "Failed to load channels");
-      });
+      .then((res) => setChannels(Array.isArray(res.data) ? res.data : []))
+      .catch((err) => console.error("Failed to fetch channels:", err));
   }, []);
 
-  useEffect(() => {
-    if (template) {
-      setSubject(template.subject || "");
-      setBody(template.body || "");
-      setChannelId(template.channelId || "");
-    } else {
-      setSubject("");
-      setBody("");
-      setChannelId("");
-    }
-    setError("");
-  }, [template]);
+  const columns = [
+    {
+      title: t("label"),
+      dataIndex: "label",
+      key: "label",
+    },
+    {
+      title: t("language"),
+      dataIndex: "language",
+      key: "language",
+      render: (text) => (text === "ar" ? "العربية" : "English"),
+    },
+    {
+      title: t("channel"),
+      dataIndex: ["channel", "label"],
+      key: "channel",
+      render: (text, record) => (
+        <Tag color="blue">
+          {record.channel?.label || record.channel?.name || "-"}
+        </Tag>
+      ),
+    },
+    {
+      title: t("content"),
+      dataIndex: "subject",
+      key: "content",
+      render: (text, record) =>
+        record.subject ||
+        record.templateName ||
+        (record.body ? record.body.substring(0, 50) + "..." : "-"),
+    },
+  ];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  const handleAdd = () => {
+    setEditingTemplate(null);
+    setSelectedChannelId(null);
+    setFormKey((prev) => prev + 1); // Force form reset
+    setIsModalOpen(true);
+  };
 
-    const newErrors = {};
-    if (!subject.trim()) newErrors.subject = t("subjectRequired");
-    if (!body.trim()) newErrors.body = t("bodyRequired");
-    if (!channelId) newErrors.channelId = t("channelRequired");
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      setLoading(false);
-      return;
-    }
+  const handleEdit = (template) => {
+    setEditingTemplate(template);
+    setSelectedChannelId(Number(template.channelId));
+    setFormKey((prev) => prev + 1); // Force form reset with new values
+    setIsModalOpen(true);
+  };
 
+  const handleDelete = async (template) => {
+    ConfirmModal({
+      title: t("deleteEntityConfirm", { entity: t("template") }),
+      onConfirm: async () => {
+        await remove(template.id);
+      },
+    });
+  };
+
+  const handleSubmit = async (values) => {
     try {
-      await onSave({
-        subject,
-        body,
-        channelId: channelId ? Number(channelId) : null,
-      });
-      // Success handling is done in parent component
-    } catch (err) {
-      if (import.meta.env.DEV) console.error("Failed to save template:", err);
-      setError(t("saveFailed") || "Failed to save template. Please try again.");
-    } finally {
-      setLoading(false);
+        const payload = {
+        label: values.label,
+        language: values.language,
+        channelId: Number(values.channelId),
+      };
+
+      if (payload.channelId === 1) {
+        payload.subject = values.subject;
+        payload.body = values.body;
+      } else if (payload.channelId === 2) {
+        payload.body = values.body;
+      } else if (payload.channelId === 3) {
+        payload.templateName = values.templateName;
+      }
+
+      if (editingTemplate) {
+        await update(editingTemplate.id, payload);
+      } else {
+        await create(payload);
+      }
+
+      setIsModalOpen(false);
+      setSelectedChannelId(null);
+    } catch (error) {
+      console.error("Error saving template:", error);
     }
   };
 
+  /* -----------------------------------------------
+     DYNAMIC FORM FIELDS
+  -------------------------------------------------*/
+  const getFormFields = useCallback(() => {
+    const baseFields = [
+      {
+        name: "channelId",
+        label: t("channel"),
+        type: "select",
+        required: true,
+        errorMsg: t("channelRequired"),
+        placeholder: t("selectChannel"),
+        options: channels.map((ch) => ({
+          label: ch.label || ch.name,
+          value: String(ch.id),
+        })),
+        onChange: (val) => {
+          setSelectedChannelId(val); // update parent state
+          setFormKey((prev) => prev + 1); // force UniversalForm re-mount
+        },
+      },
+      {
+        name: "label",
+        label: t("label"),
+        type: "input",
+        required: true,
+        errorMsg: t("labelRequired"),
+        placeholder: t("enterLabel"),
+      },
+      {
+        name: "language",
+        label: t("language"),
+        type: "select",
+        required: true,
+        errorMsg: t("languageRequired"),
+        options: [
+          { label: "English", value: "en" },
+          { label: "العربية", value: "ar" },
+        ],
+      },
+    ];
+
+    if (selectedChannelId === "1") {
+      baseFields.push(
+        {
+          name: "subject",
+          label: t("subject"),
+          type: "input",
+          required: true,
+          errorMsg: t("subjectRequired"),
+        },
+        {
+          name: "body",
+          label: t("body"),
+          type: "textarea",
+          required: true,
+          errorMsg: t("bodyRequired"),
+          rows: 5,
+        }
+      );
+    } else if (selectedChannelId === "2") {
+      baseFields.push({
+        name: "body",
+        label: t("body"),
+        type: "textarea",
+        required: true,
+        errorMsg: t("bodyRequired"),
+        rows: 3,
+      });
+    } else if (selectedChannelId === "3") {
+      baseFields.push({
+        name: "templateName",
+        label: t("templateName"),
+        type: "input",
+        required: true,
+        errorMsg: t("templateNameRequired"),
+      });
+    }
+
+    return baseFields;
+  }, [channels, selectedChannelId, t]);
+
+  /* -----------------------------------------------
+     INITIAL VALUES
+  -------------------------------------------------*/
+  const initialValues = editingTemplate
+    ? {
+        channelId: String(editingTemplate.channelId),
+        label: editingTemplate.label || "",
+        language: editingTemplate.language || currentLanguage,
+        subject: editingTemplate.subject || "",
+        body: editingTemplate.body || "",
+        templateName: editingTemplate.templateName || "",
+      }
+    : {
+        channelId: selectedChannelId ? String(selectedChannelId) : "",
+        label: "",
+        language: currentLanguage,
+        subject: "",
+        body: "",
+        templateName: "",
+      };
+
   return (
-      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-8 mt-10 max-h-[70vh] flex flex-col">
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-gray-800">
-            {template ? t("editTemplateModal") : t("addTemplateModal")}
-          </h3>
-          <button
-            onClick={onCancel}
-            className="text-gray-500 hover:text-gray-700"
-            disabled={loading}
-          >
-            <X size={24} />
-          </button>
-        </div>
+    <Card>
+      <PageHeader
+        title={t("allTemplates")}
+        icon={<FileText size={20} />}
+        onAdd={handleAdd}
+        addButtonText={t("addNewTemplate")}
+        canAdd={can("Template Management", "write")}
+      />
 
-        {/* Error message display */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
+      <Table
+        columns={columns}
+        dataSource={templates}
+        loading={loading}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        canEdit={can("Template Management", "write")}
+        canDelete={can("Template Management", "delete")}
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              {t("subject")}
-            </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => {
-                setSubject(e.target.value);
-                if (errors.subject)
-                  setErrors({ ...errors, subject: undefined });
-              }}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
-                errors.subject ? "border-red-500" : ""
-              }`}
-              disabled={loading}
-              placeholder={t("enterSubject") || "Enter subject"}
-            />
-            {errors.subject && (
-              <div className="text-red-500 text-xs mt-1">{errors.subject}</div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              {t("body")}
-            </label>
-            <textarea
-              value={body}
-              onChange={(e) => {
-                setBody(e.target.value);
-                if (errors.body) setErrors({ ...errors, body: undefined });
-              }}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
-                errors.body ? "border-red-500" : ""
-              }`}
-              rows={5}
-              disabled={loading}
-              placeholder={t("enterBody") || "Enter message body"}
-            />
-            {errors.body && (
-              <div className="text-red-500 text-xs mt-1">{errors.body}</div>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              {t("templateVariables") ||
-                "Available variables: {{userName}}, {{ruleLabel}}, {{currentValue}}, {{operator}}, {{thresholdValue}}"}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              {t("channel")}
-            </label>
-            <select
-              value={channelId}
-              onChange={(e) => {
-                setChannelId(e.target.value);
-                if (errors.channelId)
-                  setErrors({ ...errors, channelId: undefined });
-              }}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 ${
-                errors.channelId ? "border-red-500" : ""
-              }`}
-              disabled={loading}
-            >
-              <option value="">{t("selectChannel") || "Select Channel"}</option>
-              {channels.map((ch) => (
-                <option key={ch.id} value={ch.id}>
-                  {ch.label || ch.name}
-                </option>
-              ))}
-            </select>
-            {errors.channelId && (
-              <div className="text-red-500 text-xs mt-1">
-                {errors.channelId}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-6 py-2 border rounded-full text-gray-700 font-semibold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading}
-            >
-              {t("cancel")}
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 rounded-full bg-[#166a45] text-white font-semibold hover:bg-[#104631] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              disabled={loading}
-            >
-              {loading && (
-                <svg
-                  className="animate-spin h-4 w-4 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              )}
-              {loading ? t("saving") || "Saving..." : t("save")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    </div>
+      <UniversalModal
+        title={editingTemplate ? t("editTemplateModal") : t("addTemplateModal")}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedChannelId(null);
+        }}
+      >
+        <UniversalForm
+          key={formKey} // This forces re-mount on channel change
+          fields={getFormFields()}
+          initialValues={initialValues}
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsModalOpen(false);
+            setSelectedChannelId(null);
+          }}
+          submitText={t("save")}
+          cancelText={t("cancel")}
+          loading={loading}
+        />
+      </UniversalModal>
+    </Card>
   );
 };
 

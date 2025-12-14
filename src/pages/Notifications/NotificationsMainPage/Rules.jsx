@@ -3,23 +3,10 @@ import RuleModal from "../NotificationModals/RuleModal";
 import { Plus, Edit, Trash2, ListChecks } from "lucide-react";
 import useLanguage from "../../../hooks/useLanguage";
 import api from "../../../api";
-
-const Modal = ({ open, onClose, children }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold"
-        >
-          ×
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-};
+import { Table, Button } from "../../../components/common";
+import IconButton from "../../../components/common/IconButton";
+import UniversalModal from "../../../components/common/UniversalModal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 
 const Rules = ({ can }) => {
   const [rules, setRules] = useState([]);
@@ -28,7 +15,9 @@ const Rules = ({ can }) => {
   const { language, t } = useLanguage();
   const [metrics, setMetrics] = useState([]);
   const [useCases, setUseCases] = useState([]);
-  const [selectedUseCaseId, setSelectedUseCaseId] = useState(null);
+  // const [selectedUseCaseId, setSelectedUseCaseId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,6 +40,8 @@ const Rules = ({ can }) => {
   }, []);
 
   const handleSaveRule = async (newRule) => {
+    setLoading(true);
+    setErrors(null);
     try {
       if (editingRule) {
         // Use api instance for PUT
@@ -73,7 +64,9 @@ const Rules = ({ can }) => {
       setRules(res.data);
     } catch (err) {
       console.error("Failed to save rule", err);
-      alert("Failed to save rule. Please try again.");
+      // alert("Failed to save rule. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,15 +76,23 @@ const Rules = ({ can }) => {
     setIsFormVisible(true);
   };
 
-  const handleDeleteRule = async (ruleId) => {
-    try {
-      // Use api instance for DELETE
-      await api.delete(`/rules/${ruleId}`);
-      setRules(rules.filter((rule) => rule.id !== ruleId));
-    } catch (err) {
-      console.error("Failed to delete rule", err);
-      alert("Failed to delete rule. Please try again.");
-    }
+  const handleDeleteRule = (ruleId) => {
+    ConfirmModal({
+      title: t("deleteEntityConfirm", { entity: t("rule") }),
+      content:
+        t("confirmDeleteRule") || "Are you sure you want to delete this rule?",
+      okText: t("confirm"),
+      cancelText: t("cancel"),
+      onConfirm: async () => {
+        try {
+          await api.delete(`/rules/${ruleId}`);
+          setRules(rules.filter((rule) => rule.id !== ruleId));
+        } catch (err) {
+          console.error("Failed to delete rule", err);
+          // alert("Failed to delete rule. Please try again.");
+        }
+      },
+    });
   };
 
   const getUseCaseName = (id) => {
@@ -107,6 +108,66 @@ const Rules = ({ can }) => {
   // Add safety check
   const safeCan = typeof can === "function" ? can : () => false;
 
+  // Table columns for rules
+  const columns = [
+    {
+      title: t("ruleName"),
+      dataIndex: "label",
+      key: "label",
+      render: (text, record) => text || record.ruleName,
+    },
+    {
+      title: t("useCase"),
+      dataIndex: ["metric", "useCaseId"],
+      key: "useCase",
+      render: (useCaseId) => getUseCaseName(useCaseId),
+    },
+    {
+      title: t("metrics"),
+      dataIndex: ["metric", "label"],
+      key: "metrics",
+      render: (metricLabel) => getMetricName(metricLabel),
+    },
+    {
+      title: t("status"),
+      dataIndex: "active",
+      key: "status",
+      render: (active) => (
+        <span
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            active ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-600"
+          }`}
+        >
+          {active ? t("active") : t("inactive")}
+        </span>
+      ),
+    },
+    {
+      title: t("actions"),
+      key: "actions",
+      render: (_, rule) => (
+        <>
+          <IconButton
+            onClick={() => handleEditRule(rule.id)}
+            disabled={!safeCan("Rule Management", "write")}
+            className="text-teal-600 hover:text-teal-900 me-4"
+            title={t("edit")}
+          >
+            <Edit size={18} />
+          </IconButton>
+          <IconButton
+            onClick={() => handleDeleteRule(rule.id)}
+            disabled={!safeCan("Rule Management", "delete")}
+            className="text-red-600 hover:text-red-900"
+            title={t("delete")}
+          >
+            <Trash2 size={18} />
+          </IconButton>
+        </>
+      ),
+    },
+  ];
+
   return (
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
       <div className="p-6 border-b border-gray-200 flex justify-between items-center">
@@ -114,7 +175,7 @@ const Rules = ({ can }) => {
           <ListChecks size={20} className="me-2" /> {t("allRules")}
         </h2>
         {safeCan("Rule Management", "write") && (
-          <button
+          <Button
             onClick={() => {
               setEditingRule(null);
               setIsFormVisible(true);
@@ -122,102 +183,33 @@ const Rules = ({ can }) => {
             className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full"
           >
             <Plus size={16} className="me-2" /> {t("addNewRule")}
-          </button>
+          </Button>
         )}
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("ruleName")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("useCase")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("metrics")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("status")}
-              </th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t("actions")}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {rules.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  {t("noRulesMessage")}
-                </td>
-              </tr>
-            )}
-            {rules.map((rule) => (
-              <tr key={rule.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {rule.label || rule.ruleName}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {getUseCaseName(rule.metric?.useCaseId)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {getMetricName(rule.metric?.label)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      rule.active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-200 text-gray-600"
-                    }`}
-                  >
-                    {rule.active ? t("active") : t("inactive")}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {safeCan("Rule Management", "write") ? (
-                    <button
-                      onClick={() => handleEditRule(rule.id)}
-                      className="text-teal-600 hover:text-teal-900 me-4"
-                    >
-                      <Edit size={18} />
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="opacity-50 cursor-not-allowed me-4"
-                    >
-                      <Edit size={18} />
-                    </button>
-                  )}
-
-                  {safeCan("Rule Management", "delete") ? (
-                    <button
-                      onClick={() => handleDeleteRule(rule.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  ) : (
-                    <button disabled className="opacity-50 cursor-not-allowed">
-                      <Trash2 size={18} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Table
+          columns={columns}
+          dataSource={rules}
+          rowKey="id"
+          pagination={false}
+        />
       </div>
-      <Modal open={isFormVisible} onClose={() => setIsFormVisible(false)}>
+
+      <UniversalModal
+        title={editingRule ? t("editRuleModal") : t("addRuleModal")}
+        isOpen={isFormVisible}
+        onClose={() => setIsFormVisible(false)}
+        size="large"
+      >
         <RuleModal
           onSave={handleSaveRule}
           rule={editingRule}
           onCancel={() => setIsFormVisible(false)}
+          loading={loading}
+          errors={errors}
+          // ...other props if needed
         />
-      </Modal>
+      </UniversalModal>
     </div>
   );
 };

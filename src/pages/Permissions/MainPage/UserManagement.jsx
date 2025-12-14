@@ -1,254 +1,237 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash2, Search, Users } from 'lucide-react';
-import useLanguage from '../../../hooks/useLanguage';
-import ConfirmDeleteModal from '../ConfirmDeleteModal';
-import api from "../../../api";
+import React, { useState, useMemo } from "react";
+import { Tag } from "antd";
+import { User, Users, Edit, Trash2 } from "lucide-react";
+import {
+  Card,
+  PageHeader,
+  Table,
+  SearchInput,
+  IconButton,
+} from "../../../components/common";
+import { useCRUD } from "../../../hooks/useCRUD";
+import { ConfirmModal } from "../../../components/common";
+import useLanguage from "../../../hooks/useLanguage";
+import UserModal from "../Modals/UserModal";
+import UniversalModal from "../../../components/common/UniversalModal";
 
-const isDev = import.meta.env.DEV;
+const UserManagement = ({ groups, roles, can }) => {
+  const { t } = useLanguage();
+  const [search, setSearch] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
-const UserManagement = ({ users: propUsers, groups: propGroups, roles: propRoles, onEdit, onAdd, onDelete, can }) => {
-  const { language, t } = useLanguage();
-  const [roles, setRoles] = useState([]);
-  const [users, setUsers] = useState(propUsers || []);
-  const [groups, setGroups] = useState(propGroups || []);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [roleToDelete, setRoleToDelete] = useState(null);
-  const [deleteError, setDeleteError] = useState("");
+  const {
+    data: users,
+    loading: tableLoading,
+    create,
+    update,
+    remove,
+    refresh,
+  } = useCRUD("/users");
 
+  // Compute roles for each user from their groups
+  const usersWithRoles = useMemo(() => {
+    if (!users || !groups || !roles) return users || [];
 
-useEffect(() => {
-  const fetchGroups = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/groups");
-      setGroups(res.data || []);
-    } catch (err) {
-      if (isDev) console.error("Error fetching groups:", err);
-      setGroups([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchGroups();
-}, []);
-
-  useEffect(() => {
-    if (propUsers) setUsers(propUsers);
-  }, [propUsers]);
-
-  useEffect(() => {
-    if (propGroups) setGroups(propGroups);
-  }, [propGroups]);
-
-  const handleDeleteClick = useCallback((user) => {
-    setRoleToDelete(user);
-    setDeleteError("");
-    setConfirmOpen(true);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    setDeleteError("");
-    if (!roleToDelete) return;
-    try {
-      if (onDelete) {
-        await onDelete(roleToDelete.id);
-      } else {
-        await api.delete(`/users/${roleToDelete.id}`);
+    return users.map((user) => {
+      if (!user.groups || user.groups.length === 0) {
+        return { ...user, roles: [] };
       }
-      setConfirmOpen(false);
-      setRoleToDelete(null);
-      setUsers(prev => prev.filter(u => u.id !== roleToDelete.id));
-    } catch (err) {
-      const apiData = err?.response?.data || {};
-      let errorMessage = "";
-      if (language === "ar" && apiData.errorMessage_AR) {
-        errorMessage = apiData.errorMessage_AR;
-      } else if (language === "en" && apiData.errorMessage_EN) {
-        errorMessage = apiData.errorMessage_EN;
-      } else {
-        errorMessage =
-          apiData.error ||
-          apiData.message ||
-          err?.message ||
-          t('apiErrorGeneric');
-      }
-      setDeleteError(errorMessage);
-    }
-  }, [roleToDelete, onDelete, language, t]);
 
-  const handleCancelDelete = useCallback(() => {
-    setConfirmOpen(false);
-    setRoleToDelete(null);
-    setDeleteError("");
-  }, []);
+      const roleIds = new Set();
 
-  // Always use the latest groups for role lookup
-const getAllRolesForUser = useMemo(() => {
-  return (user) => {
-    // Direct roles
-    const directRoles = Array.isArray(user.roles) ? user.roles.map(r => r.name) : [];
-    // Group roles
-    let groupRoles = [];
-    if (user.groups && Array.isArray(user.groups) && Array.isArray(groups) && groups.length > 0) {
-      user.groups.forEach(userGroup => {
-        const fullGroup = groups.find(g =>
-          String(g.id) === String(userGroup.id) ||
-          g.name === userGroup.name
-        );
-        if (fullGroup && Array.isArray(fullGroup.roles)) {
-          groupRoles.push(...fullGroup.roles.map(r => r.name));
+      user.groups.forEach((userGroup) => {
+        const group = groups.find((g) => g.id === userGroup.id);
+        if (group) {
+          // If group has roleIds array
+          if (Array.isArray(group.roleIds)) {
+            group.roleIds.forEach((roleId) => roleIds.add(roleId));
+          }
+          // If group has roles array
+          if (Array.isArray(group.roles)) {
+            group.roles.forEach((role) => roleIds.add(role.id));
+          }
         }
       });
-    }
-    // Remove duplicates
-    return Array.from(new Set([...directRoles, ...groupRoles]));
-  };
-}, [groups]);
 
-  const filteredUsers = useMemo(() => {
-    if (!users) return [];
-    const searchValue = search.trim();
-    if (!searchValue) return users;
-    return users.filter(user =>
-      (user.nafath_id && user.nafath_id.toString().startsWith(searchValue)) ||
-      (user.id && user.id.toString().startsWith(searchValue)) ||
-      (user.name && user.name.toLowerCase().startsWith(searchValue.toLowerCase()))
-    );
-  }, [users, search]);
+      const userRoles = Array.from(roleIds)
+        .map((roleId) => roles.find((r) => r.id === roleId))
+        .filter(Boolean);
 
-  const handleSearchChange = useCallback((e) => {
-    const numericValue = e.target.value.replace(/\D/g, '');
-    setSearch(numericValue);
-  }, []);
+      return { ...user, roles: userRoles };
+    });
+  }, [users, groups, roles]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-700">{t('allUsers')}</h2>
-        <div className={`flex items-center space-x-4 ${language === 'ar' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder={t('searchUsers')}
-              value={search}
-              onChange={handleSearchChange}
-              className={`ps-10 pe-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors duration-200 ${language === 'ar' ? 'text-right' : ''}`}
-            />
-            <Search size={18} className={`absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400`} />
-          </div>
-          {can && can("User Management", "write") && (
-            <button onClick={onAdd} className="flex items-center px-4 py-2 bg-[#166a45] text-white rounded-full hover:bg-[#0f5434] transition-colors">
-              <Plus size={16} className="me-2" /> {t('addUser')}
-            </button>
+  const columns = [
+    {
+      title: t("nationalId"),
+      dataIndex: "nafath_id",
+      key: "nafath_id",
+      width: 150,
+      sorter: (a, b) => String(a.nafath_id).localeCompare(String(b.nafath_id)),
+    },
+    {
+      title: t("groupsLabel"),
+      dataIndex: "groups",
+      key: "groups",
+      sorter: (a, b) =>
+        (a.groups?.[0]?.name || "").localeCompare(b.groups?.[0]?.name || ""),
+      render: (groups) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Users size={16} className="text-gray-500" />
+          {groups && groups.length > 0 ? (
+            groups.map((g) => <Tag key={g.id}>{g.name}</Tag>)
+          ) : (
+            <span className="text-gray-400">{t("noGroups")}</span>
           )}
         </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('nationalId')}</th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('groupsLabel')}</th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('rolesLabel')}</th>
-              <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{t('actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                  {search ? t('noResultsFound') : t('noUsersFound')}
-                </td>
-              </tr>
-            )}
-            {filteredUsers.map((user) => {
-              const userRoles = getAllRolesForUser(user);
-              return (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {user.nafath_id || user.id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center gap-2 text-sm flex-wrap">
-                      <Users size={16} className="text-gray-500 flex-shrink-0" />
-                      {user.groups && user.groups.length > 0 ? (
-                        <span className="whitespace-nowrap text-sm text-gray-600">
-                          {user.groups.map(g => g.name).join(', ')}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">{t('noGroups')}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <div className="flex flex-wrap gap-1">
-                      {userRoles.length > 0 ? (
-                        userRoles.map((roleName, index) => (
-                          <span
-                            key={`${user.id}-${roleName}-${index}`}
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-teal-100 text-teal-800`}
-                          >
-                            {roleName}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400">{t('noRoles')}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onEdit(user)}
-                        disabled={!can || !can("User Management", "write")}
-                        className={`${
-                          can && can("User Management", "write")
-                            ? "text-teal-600 hover:text-teal-900"
-                            : "opacity-50 cursor-not-allowed"
-                        } transition-colors`}
-                        aria-label="Edit user"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(user)}
-                        disabled={!can || !can("User Management", "delete")}
-                        className={`${
-                          can && can("User Management", "delete")
-                            ? "text-red-600 hover:text-red-900"
-                            : "opacity-50 cursor-not-allowed"
-                        } transition-colors`}
-                        aria-label="Delete user"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <ConfirmDeleteModal
-        open={confirmOpen}
-        message={t('deleteEntityConfirm', { entity: t('user') })}
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-        error={deleteError}
+      ),
+    },
+    {
+      title: t("rolesLabel"),
+      dataIndex: "roles",
+      key: "roles",
+      sorter: (a, b) =>
+        (a.roles?.[0]?.name || "").localeCompare(b.roles?.[0]?.name || ""),
+      render: (roles) => (
+        <div className="flex flex-wrap gap-1">
+          {roles && roles.length > 0 ? (
+            roles.map((role, idx) => (
+              <Tag key={idx} color="cyan">
+                {role.name}
+              </Tag>
+            ))
+          ) : (
+            <span className="text-gray-400">{t("noRoles")}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: t("actions"),
+      key: "actions",
+      render: (_, user) => (
+        <div className="flex items-center gap-2">
+          <IconButton
+            onClick={() => handleEdit(user)}
+            disabled={!can("User Management", "write")}
+            className="text-teal-600 hover:text-teal-900"
+            title={t("edit")}
+          >
+            <Edit size={18} />
+          </IconButton>
+          <IconButton
+            onClick={() => handleDelete(user)}
+            disabled={!can("User Management", "delete")}
+            className="text-red-600 hover:text-red-900"
+            title={t("delete")}
+          >
+            <Trash2 size={18} />
+          </IconButton>
+        </div>
+      ),
+    },
+  ];
+
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return usersWithRoles;
+    return usersWithRoles.filter(
+      (user) =>
+        user.nafath_id?.toString().includes(search) ||
+        user.name?.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [usersWithRoles, search]);
+
+  const handleAdd = () => {
+    setEditingUser(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (user) => {
+    setEditingUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (user) => {
+    // Check if user has groups or roles
+    const hasGroups = user.groups && user.groups.length > 0;
+    const hasRoles = user.roles && user.roles.length > 0;
+
+    if (hasGroups || hasRoles) {
+      ConfirmModal({
+        title: t("cannotDeleteUser"),
+        content: (
+          <div>
+            <p>{t("userHasGroupsRoles")}</p>
+          </div>
+        ),
+        okText: t("ok"),
+        cancelText: t("cancel"),
+      });
+      return;
+    }
+
+    // If user has no groups or roles, proceed with delete
+    ConfirmModal({
+      title: t("deleteEntityConfirm", { entity: t("user") }),
+      content: `${
+        t("confirmDeleteUser")
+      } ${user.nafath_id}?`,
+      okText: t("confirm"),
+      cancelText: t("cancel"),
+      onConfirm: async () => {
+        await remove(user.id);
+        await refresh();
+      },
+    });
+  };
+
+  return (
+    <Card>
+      <PageHeader
+        title={t("allUsers")}
+        icon={<User size={20} />}
+        onAdd={handleAdd}
+        addButtonText={t("addUser")}
+        canAdd={can("User Management", "write")}
+        extra={
+          <SearchInput
+            placeholder={t("searchUsers")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value.replace(/\D/g, ""))}
+          />
+        }
       />
-    </div>
+
+      <Table
+        columns={columns}
+        dataSource={filteredUsers}
+        loading={tableLoading}
+      />
+
+      {isModalOpen && (
+        <UniversalModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={editingUser ? t("editUserModal") : t("addUserModal")}
+          maxWidth="max-w-2xl"
+          maxHeight="max-h-[75vh]"
+        >
+          <UserModal
+            groups={groups}
+            roles={roles}
+            onClose={() => setIsModalOpen(false)}
+            onSave={async () => {
+              await refresh();
+              setIsModalOpen(false);
+            }}
+            user={editingUser}
+            can={can}
+          />
+        </UniversalModal>
+      )}
+    </Card>
   );
 };
 
-export default React.memo(UserManagement);
+export default UserManagement;

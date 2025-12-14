@@ -5,7 +5,6 @@ import { translations } from "../pages/translations";
 const useLanguage = () => {
   const { language, setLanguage } = useContext(LanguageContext);
 
-  // Updated t function to support variables
   const t = (key, vars = {}) => {
     let str = translations[language][key] || key;
     Object.keys(vars).forEach(k => {
